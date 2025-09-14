@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Shoe Product</title>
+    <style>
+      /* Base styles (Mobile-first) */
+      body {
+        font-family: "Roboto", sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #121212;
+        color: #e0e0e0;
+        overflow-x: hidden;
+      }
+
+      div {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      article {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 12px;
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+        padding: 20px;
+        width: 100%; /* Full width on small screens */
+        max-width: 320px; /* Limit width on larger screens */
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      article:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      article h1 {
+        font-size: clamp(1.5rem, 2.5vw, 2rem); /* Scales dynamically */
+        color: #ff9800;
+        margin-bottom: 10px;
+      }
+
+      article img {
+        border-radius: 12px;
+        margin: 15px 0;
+        width: 100%;
+        height: auto;
+      }
+
+      article h2 {
+        font-size: 1.4rem;
+        color: #4caf50;
+        margin: 10px 0;
+      }
+
+      article p {
+        font-size: 1rem;
+        color: #b0b0b0;
+        margin: 10px 0;
+      }
+
+      article ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 15px 0;
+        text-align: left;
+      }
+
+      article ul li {
+        font-size: 0.95rem;
+        color: #e0e0e0;
+        margin-bottom: 8px;
+        padding-left: 20px;
+        position: relative;
+      }
+
+      article ul li::before {
+        content: "✔";
+        color: #4caf50;
+        position: absolute;
+        left: 0;
+      }
+
+      article a {
+        display: inline-block;
+        margin: 15px 0;
+        color: #03a9f4;
+        text-decoration: none;
+        font-weight: bold;
+        transition: color 0.3s ease;
+      }
+
+      article a:hover {
+        color: #0288d1;
+      }
+
+      article button {
+        background-color: #ff5722;
+        color: #fff;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.3s ease;
+      }
+
+      article button:hover {
+        background-color: #e64a19;
+      }
+
+      /* Tablet styles */
+      @media (min-width: 768px) {
+        div {
+          gap: 30px;
+          padding: 40px;
+        }
+
+        article {
+          flex: 1 1 calc(50% - 20px); /* Two columns */
+        }
+      }
+
+      /* Desktop styles */
+      @media (min-width: 1024px) {
+        article {
+          flex: 1 1 calc(33.33% - 20px); /* Three columns */
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <article>
+        <h1>Converse Chuck Taylor All Star Low Top</h1>
+        <img
+          src="assets/images/challenges.jpg"
+          alt="Shoe product and its details"
+        />
+        <h2>$65.00</h2>
+        <p>Free Shipping</p>
+        <p>
+          Ready to dress up or down, these classic canvas Chucks are an everyday
+          wardrobe staple.
+        </p>
+        <a href="#">More information &rarr;</a>
+        <h3>Product Details</h3>
+        <ul>
+          <li>Lightweight, durable canvas sneaker</li>
+          <li>Lightly padded footbed for added comfort</li>
+          <li>Iconic Chuck Taylor ankle patch</li>
+        </ul>
+        <button>Add to cart</button>
+      </article>
+      <!-- Repeat the article 5 more times -->
+      <article>
+        <h1>Converse Chuck Taylor All Star Low Top</h1>
+        <img
+          src="assets/images/challenges.jpg"
+          alt="Shoe product and its details"
+        />
+        <h2>$65.00</h2>
+        <p>Free Shipping</p>
+        <p>
+          Ready to dress up or down, these classic canvas Chucks are an everyday
+          wardrobe staple.
+        </p>
+        <a href="#">More information &rarr;</a>
+        <h3>Product Details</h3>
+        <ul>
+          <li>Lightweight, durable canvas sneaker</li>
+          <li>Lightly padded footbed for added comfort</li>
+          <li>Iconic Chuck Taylor ankle patch</li>
+        </ul>
+        <button>Add to cart</button>
+      </article>
+      <!-- Add 4 more articles as needed -->
+    </div>
+  </body>
+</html>
