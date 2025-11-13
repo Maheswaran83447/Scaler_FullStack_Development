@@ -1,0 +1,525 @@
+/* 
+ * CSS Naming Conventions
+ * Your Capstone E-Commerce Platform
+ * Based on BEM (Block Element Modifier) methodology
+ */
+
+/* =================================================================
+   COLOR VARIABLES - Functional Grouping
+   ================================================================= */
+:root {
+  /* Primary Brand Colors */
+  --color-primary-brand: #007bff;
+  --color-primary-brand-hover: #0056b3;
+  --color-primary-brand-dark: #004085;
+  --color-primary-brand-light: #e7f3ff;
+
+  /* Secondary Action Colors */
+  --color-secondary-action: #6c757d;
+  --color-secondary-action-hover: #5a6268;
+
+  /* Status Colors */
+  --color-success-status: #28a745;
+  --color-success-status-hover: #218838;
+  --color-success-background: #f0f8f5;
+
+  --color-error-status: #dc3545;
+  --color-error-status-hover: #c82333;
+  --color-error-background: #f8f5f0;
+
+  --color-warning-status: #ffc107;
+  --color-warning-status-hover: #e0a800;
+  --color-warning-background: #fff8f0;
+
+  --color-info-status: #17a2b8;
+  --color-info-status-hover: #138496;
+
+  /* Neutral Colors */
+  --color-neutral-dark: #212529;
+  --color-neutral-gray: #6c757d;
+  --color-neutral-light: #f8f9fa;
+  --color-neutral-border: #dee2e6;
+
+  /* Background Colors */
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f8f9fa;
+  --color-background-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Text Colors */
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #999;
+  --color-text-inverse: #ffffff;
+}
+
+/* =================================================================
+   SPACING SCALE - Consistent Sizing
+   ================================================================= */
+:root {
+  --spacing-unit: 8px;
+  --spacing-xs: calc(var(--spacing-unit) * 0.5); /* 4px */
+  --spacing-sm: var(--spacing-unit); /* 8px */
+  --spacing-md: calc(var(--spacing-unit) * 2); /* 16px */
+  --spacing-lg: calc(var(--spacing-unit) * 3); /* 24px */
+  --spacing-xl: calc(var(--spacing-unit) * 4); /* 32px */
+  --spacing-2xl: calc(var(--spacing-unit) * 6); /* 48px */
+}
+
+/* =================================================================
+   TYPOGRAPHY - Font Hierarchy
+   ================================================================= */
+:root {
+  /* Font Families */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: "Courier New", monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-base: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-size-xl: 1.25rem; /* 20px */
+  --font-size-2xl: 1.5rem; /* 24px */
+  --font-size-3xl: 2rem; /* 32px */
+
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+}
+
+/* =================================================================
+   RESPONSIVE BREAKPOINTS
+   ================================================================= */
+:root {
+  --breakpoint-mobile: 320px;
+  --breakpoint-mobile-lg: 480px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-desktop-lg: 1280px;
+  --breakpoint-desktop-xl: 1536px;
+}
+
+/* =================================================================
+   BORDER & RADIUS
+   ================================================================= */
+:root {
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-width-thin: 1px;
+  --border-width-normal: 2px;
+  --border-width-thick: 3px;
+}
+
+/* =================================================================
+   SHADOWS
+   ================================================================= */
+:root {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* =================================================================
+   USER NAVIGATION - BEM Block
+   ================================================================= */
+
+/* Block: Primary navigation container */
+.user-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--color-background-primary);
+  padding: var(--spacing-md);
+  border-bottom: var(--border-width-thin) solid var(--color-neutral-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Element: Navigation logo */
+.user-navigation__logo {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary-brand);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.user-navigation__logo:hover {
+  color: var(--color-primary-brand-hover);
+}
+
+/* Element: Navigation items container */
+.user-navigation__menu {
+  display: flex;
+  gap: var(--spacing-lg);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Element: Individual navigation item */
+.user-navigation__item {
+  position: relative;
+}
+
+/* Element: Navigation link */
+.user-navigation__link {
+  display: inline-block;
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color 0.3s ease;
+  border-bottom: var(--border-width-thin) solid transparent;
+}
+
+.user-navigation__link:hover {
+  color: var(--color-primary-brand);
+}
+
+/* Modifier: Active/current navigation item */
+.user-navigation__link--active {
+  color: var(--color-primary-brand);
+  border-bottom-color: var(--color-primary-brand);
+}
+
+/* Modifier: Disabled navigation item */
+.user-navigation__link--disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* =================================================================
+   PRODUCT LISTING - BEM Block
+   ================================================================= */
+
+/* Block: Product grid container */
+.product-listing {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+
+/* Element: Individual product card */
+.product-listing__card {
+  background-color: var(--color-background-primary);
+  border-radius: var(--border-radius-md);
+  border: var(--border-width-thin) solid var(--color-neutral-border);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.product-listing__card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+}
+
+/* Element: Product card image container */
+.product-listing__card-image {
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  background-color: var(--color-neutral-light);
+}
+
+/* Element: Product image */
+.product-listing__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.product-listing__card:hover .product-listing__image {
+  transform: scale(1.05);
+}
+
+/* Element: Product information container */
+.product-listing__info {
+  padding: var(--spacing-md);
+}
+
+/* Element: Product title */
+.product-listing__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-sm) 0;
+  line-height: var(--line-height-tight);
+}
+
+/* Element: Product description */
+.product-listing__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-md) 0;
+  line-height: var(--line-height-normal);
+}
+
+/* Element: Price container */
+.product-listing__price-container {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: baseline;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Element: Current price */
+.product-listing__price {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary-brand);
+}
+
+/* Modifier: Sale price */
+.product-listing__price--sale {
+  color: var(--color-success-status);
+}
+
+/* Element: Original price (strikethrough) */
+.product-listing__price-original {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+/* Element: Discount badge */
+.product-listing__discount-badge {
+  display: inline-block;
+  background-color: var(--color-error-status);
+  color: var(--color-text-inverse);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Element: Rating container */
+.product-listing__rating {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Element: Star icon */
+.product-listing__star {
+  font-size: var(--font-size-sm);
+  color: #ffc107;
+}
+
+/* Modifier: Empty star */
+.product-listing__star--empty {
+  color: var(--color-neutral-border);
+}
+
+/* Element: Add to cart button */
+.product-listing__add-to-cart-btn {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-primary-brand);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.product-listing__add-to-cart-btn:hover {
+  background-color: var(--color-primary-brand-hover);
+}
+
+/* Modifier: Disabled add to cart button */
+.product-listing__add-to-cart-btn--disabled {
+  background-color: var(--color-secondary-action);
+  cursor: not-allowed;
+}
+
+/* =================================================================
+   SHOPPING CART - BEM Block
+   ================================================================= */
+
+/* Block: Shopping cart container */
+.shopping-cart {
+  background-color: var(--color-background-primary);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Element: Cart items list */
+.shopping-cart__items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-bottom: var(--border-width-thin) solid var(--color-neutral-border);
+  padding-bottom: var(--spacing-lg);
+}
+
+/* Element: Cart item */
+.shopping-cart__item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+  border-bottom: var(--border-width-thin) solid var(--color-neutral-border);
+}
+
+/* Modifier: Empty cart state */
+.shopping-cart__item--empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-2xl) var(--spacing-lg);
+}
+
+/* Element: Cart total section */
+.shopping-cart__total-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: var(--border-width-thin) solid var(--color-neutral-border);
+}
+
+/* Element: Total label and amount */
+.shopping-cart__total {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Element: Checkout button */
+.shopping-cart__checkout-button {
+  width: 100%;
+  padding: var(--spacing-md);
+  background-color: var(--color-success-status);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.shopping-cart__checkout-button:hover {
+  background-color: var(--color-success-status-hover);
+}
+
+/* Modifier: Disabled checkout button */
+.shopping-cart__checkout-button--disabled {
+  background-color: var(--color-secondary-action);
+  cursor: not-allowed;
+}
+
+/* =================================================================
+   FORM ELEMENTS - Input & Labels
+   ================================================================= */
+
+/* Block: Form container */
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Element: Form label */
+.form-group__label {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text-primary);
+}
+
+/* Modifier: Required label indicator */
+.form-group__label--required::after {
+  content: " *";
+  color: var(--color-error-status);
+}
+
+/* Element: Form input field */
+.form-group__input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: var(--border-width-thin) solid var(--color-neutral-border);
+  border-radius: var(--border-radius-sm);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  transition: all 0.3s ease;
+}
+
+.form-group__input:focus {
+  outline: none;
+  border-color: var(--color-primary-brand);
+  box-shadow: 0 0 0 3px var(--color-primary-brand-light);
+}
+
+/* Modifier: Input with error state */
+.form-group__input--error {
+  border-color: var(--color-error-status);
+}
+
+/* Element: Error message */
+.form-group__error {
+  display: block;
+  color: var(--color-error-status);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+/* Element: Helper/hint text */
+.form-group__helper {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+/* =================================================================
+   RESPONSIVE DESIGN EXAMPLE
+   ================================================================= */
+
+/* Tablet (768px and up) */
+@media (max-width: 768px) {
+  .product-listing {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+
+  .user-navigation__menu {
+    gap: var(--spacing-md);
+  }
+}
+
+/* Mobile (480px and down) */
+@media (max-width: 480px) {
+  .product-listing {
+    grid-template-columns: 1fr;
+  }
+
+  .user-navigation {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .user-navigation__menu {
+    width: 100%;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+}
