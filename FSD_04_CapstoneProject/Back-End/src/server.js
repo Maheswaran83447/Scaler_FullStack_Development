@@ -15,12 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "API is running", timestamp: new Date() });
 });
-
-// Routes (placeholder - add your routes here)
-// app.use('/api/auth', require('./api/routes/authRoutes'));
-// app.use('/api/products', require('./api/routes/productRoutes'));
-// app.use('/api/users', require('./api/routes/userRoutes'));
-
+app.use("/api/products", require("./api/routes/productRoutes"));
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });

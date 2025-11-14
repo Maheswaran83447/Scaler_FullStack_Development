@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { CartProvider } from "./context/CartContext";
+import { ToastProvider } from "./context/ToastContext";
 import Lottie from "lottie-react";
 import animationData from "./assets/Landing Page - Animation.json";
 import "./App.css";
@@ -7,6 +9,7 @@ import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
+import PlaceOrder from "./pages/PlaceOrder";
 import useAuth from "./hooks/useAuth";
 
 function LoginPane({ onGuest }) {
@@ -126,6 +129,10 @@ function AppRoutesWrapper() {
         element={<ProductDetails user={user} onLogout={handleLogout} />}
       />
       <Route
+        path="/checkout"
+        element={<PlaceOrder user={user} onLogout={handleLogout} />}
+      />
+      <Route
         path="/cart"
         element={<Cart user={user} onLogout={handleLogout} />}
       />
@@ -138,7 +145,11 @@ function AppRoutesWrapper() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppRoutesWrapper />
+      <ToastProvider>
+        <CartProvider>
+          <AppRoutesWrapper />
+        </CartProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }
