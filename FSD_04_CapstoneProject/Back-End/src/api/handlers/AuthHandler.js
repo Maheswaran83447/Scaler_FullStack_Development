@@ -27,13 +27,14 @@ class UserAuthenticationHandler {
         });
       }
 
-      const { email, username, password } = req.body;
+      const { email, username, password, phoneNumber } = req.body;
 
       // Call service to register user
       const registrationResult = await this.authService.registerNewUserAccount(
         email,
         username,
-        password
+        password,
+        phoneNumber
       );
 
       // Return success response with token
@@ -68,11 +69,20 @@ class UserAuthenticationHandler {
         });
       }
 
-      const { email, password } = req.body;
+      const { identifier, password } = req.body;
+      if (!identifier) {
+        return res.status(400).json({
+          success: false,
+          message: "Email or phone number is required",
+        });
+      }
 
       // Call service to authenticate user
       const authenticationResult =
-        await this.authService.authenticateUserWithCredentials(email, password);
+        await this.authService.authenticateUserWithCredentials(
+          identifier,
+          password
+        );
 
       // Return success response with token
       res.status(200).json({
@@ -143,6 +153,55 @@ class UserAuthenticationHandler {
       res.status(500).json({
         success: false,
         message: error.message || "Logout failed",
+      });
+    }
+  }
+
+  async handlePasswordResetRequest(req, res) {
+    try {
+      const validationErrors = validationResult(req);
+      if (!validationErrors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validationErrors.array(),
+        });
+      }
+
+      const { identifier } = req.body;
+      const result = await this.authService.requestPasswordReset(identifier);
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message || "Unable to process reset request",
+      });
+    }
+  }
+
+  async handlePasswordReset(req, res) {
+    try {
+      const validationErrors = validationResult(req);
+      if (!validationErrors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validationErrors.array(),
+        });
+      }
+
+      const { token, password } = req.body;
+      const result = await this.authService.resetPasswordWithToken(
+        token,
+        password
+      );
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message || "Unable to reset password",
       });
     }
   }

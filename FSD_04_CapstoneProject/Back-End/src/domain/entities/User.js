@@ -40,9 +40,11 @@ const userAccountSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    contactPhoneNumber: {
+    phoneNumber: {
       type: String,
-      default: "",
+      trim: true,
+      unique: true,
+      sparse: true,
     },
     userRole: {
       type: String,
@@ -80,6 +82,16 @@ const userAccountSchema = new mongoose.Schema(
     accountUpdatedAt: {
       type: Date,
       default: Date.now,
+    },
+    passwordResetToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      default: null,
+      select: false,
     },
   },
   {
@@ -124,6 +136,8 @@ userAccountSchema.methods.toUserProfileJSON = function () {
   const userProfile = this.toObject();
   delete userProfile.passwordHash;
   delete userProfile.emailVerificationTokenExpiry;
+  delete userProfile.passwordResetToken;
+  delete userProfile.passwordResetExpires;
   return userProfile;
 };
 

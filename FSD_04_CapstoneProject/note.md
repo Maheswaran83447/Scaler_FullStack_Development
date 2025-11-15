@@ -1,5 +1,25 @@
 # Analyse Changes
 
+## Commits on 15 Nov 2025
+
+### Front-End Authentication Refresh
+
+- Retired the legacy Lottie animation from the landing hero, reducing bundle size and removing a fragile runtime dependency.
+- Revamped the login screen so email/phone plus password validation runs on input, enabling the sign-in button only when credentials are present.
+- Persisted the JWT and derived user profile in local storage, ensuring authenticated sessions survive tab refreshes.
+
+### Brand & Navigation Alignment
+
+- Rebuilt `CartifyLogo.jsx` around the latest SVG asset to keep the React header perfectly aligned with design-system updates.
+- Tuned navbar spacing around the refreshed logo to preserve visual balance across breakpoints.
+
+### Backend Auth Hardening
+
+- Expanded `AuthService` with secure credential verification, bcrypt password hashing, and structured error messaging for bad sign-ins.
+- Introduced `UserRepository` helpers that encapsulate Mongo lookups and updates, preparing the service layer for future profile features.
+
+## Commits on 14 Nov 2025
+
 ## Feature: Navbar Branding Refresh
 
 - Replaced the plain text brand mark with the new Cartify SVG logo so the header reflects the latest design system.

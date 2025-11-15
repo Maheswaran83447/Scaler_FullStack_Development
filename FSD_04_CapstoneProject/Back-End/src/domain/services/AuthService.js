@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
-const UserAccountRepository = require("../repositories/UserAccountRepository");
+const crypto = require("crypto");
+const UserAccountRepository = require("../repositories/UserRepository");
+const EmailService = require("../../infrastructure/services/EmailService");
 
 /**
  * UserAuthenticationService
@@ -21,7 +23,7 @@ class UserAuthenticationService {
    * @returns {object} { sessionToken, userProfile }
    * @throws {Error} If email or username already exists
    */
-  async registerNewUserAccount(email, username, password) {
+  async registerNewUserAccount(email, username, password, phoneNumber) {
     // Check if email is already registered
     const existingUserByEmail = await this.userRepository.findUserByEmail(
       email
@@ -38,11 +40,21 @@ class UserAuthenticationService {
       throw new Error("Username is already taken, please choose another");
     }
 
+    if (phoneNumber) {
+      const phoneNumberInUse = await this.userRepository.doesPhoneNumberExist(
+        phoneNumber
+      );
+      if (phoneNumberInUse) {
+        throw new Error("Phone number is already linked to an account");
+      }
+    }
+
     // Prepare user account data
     const newUserAccountData = {
       email,
       username,
       passwordHash: password,
+      phoneNumber,
       accountCreatedAt: new Date(),
       emailVerificationStatus: false,
     };
@@ -63,9 +75,11 @@ class UserAuthenticationService {
    * @returns {object} { sessionToken, userProfile }
    * @throws {Error} If user not found or password invalid
    */
-  async authenticateUserWithCredentials(email, password) {
-    // Find user by email
-    const userAccount = await this.userRepository.findUserByEmail(email);
+  async authenticateUserWithCredentials(identifier, password) {
+    // Find user by email or phone
+    const userAccount = await this.userRepository.findUserByIdentifier(
+      identifier
+    );
     if (!userAccount) {
       throw new Error("User account not found");
     }
@@ -133,7 +147,7 @@ class UserAuthenticationService {
 
     const refreshToken = jwt.sign(
       { userId: userAccount._id },
-      process.env.JWT_REFRESH_SECRET,
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
@@ -156,6 +170,76 @@ class UserAuthenticationService {
       lastSessionTerminatedAt: new Date(),
     });
     return { success: true, message: "Session terminated successfully" };
+  }
+
+  async requestPasswordReset(identifier) {
+    if (!identifier) {
+      throw new Error("Email or phone number is required");
+    }
+
+    const user = await this.userRepository.findUserByIdentifier(identifier);
+    if (!user) {
+      return {
+        success: true,
+        message:
+          "If an account exists for the provided details, a reset link has been sent",
+      };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.userRepository.setPasswordResetToken(
+      user._id,
+      tokenHash,
+      expiresAt
+    );
+
+    const frontendBase =
+      process.env.FRONTEND_BASE_URL || "http://localhost:5173";
+    const resetLink = `${frontendBase.replace(
+      /\/$/,
+      ""
+    )}/reset-password?token=${resetToken}`;
+
+    await EmailService.sendPasswordResetEmail(user.email, resetLink);
+
+    return {
+      success: true,
+      message: "Password reset instructions have been sent to your email",
+    };
+  }
+
+  async resetPasswordWithToken(token, newPassword) {
+    if (!token) {
+      throw new Error("Reset token is required");
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("Password must be at least 6 characters");
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await this.userRepository.findUserByPasswordResetToken(
+      tokenHash
+    );
+
+    if (!user) {
+      throw new Error("Reset link is invalid or has expired");
+    }
+
+    user.passwordHash = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+
+    return {
+      success: true,
+      message: "Password updated successfully",
+    };
   }
 }
 

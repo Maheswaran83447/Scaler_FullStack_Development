@@ -1,4 +1,4 @@
-const UserAccount = require("../entities/UserAccount");
+const UserAccount = require("../entities/User");
 
 /**
  * UserAccountRepository
@@ -20,8 +20,12 @@ class UserAccountRepository {
    * @param {string} email - User email (case-insensitive)
    * @returns {Promise<object|null>} User account or null
    */
-  async findUserByEmail(email) {
-    return await UserAccount.findOne({ email: email.toLowerCase() });
+  async findUserByEmail(email, options = {}) {
+    const query = UserAccount.findOne({ email: email.toLowerCase() });
+    if (options.includePassword) {
+      query.select("+passwordHash");
+    }
+    return await query;
   }
 
   /**
@@ -29,8 +33,46 @@ class UserAccountRepository {
    * @param {string} username - User username
    * @returns {Promise<object|null>} User account or null
    */
-  async findUserByUsername(username) {
-    return await UserAccount.findOne({ username });
+  async findUserByUsername(username, options = {}) {
+    const query = UserAccount.findOne({ username });
+    if (options.includePassword) {
+      query.select("+passwordHash");
+    }
+    return await query;
+  }
+
+  /**
+   * Find user by phone number
+   * @param {string} phoneNumber - User phone number (string)
+   * @param {object} options - Query options
+   * @returns {Promise<object|null>} User account or null
+   */
+  async findUserByPhoneNumber(phoneNumber, options = {}) {
+    if (!phoneNumber) return null;
+    const normalized = phoneNumber.replace(/\s+/g, "");
+    const query = UserAccount.findOne({ phoneNumber: normalized });
+    if (options.includePassword) {
+      query.select("+passwordHash");
+    }
+    return await query;
+  }
+
+  /**
+   * Find user by email or phone identifier (used for login)
+   * @param {string} identifier - Email address or phone number
+   * @returns {Promise<object|null>} User account or null
+   */
+  async findUserByIdentifier(identifier) {
+    if (!identifier) return null;
+
+    const isEmail = /@/.test(identifier);
+    if (isEmail) {
+      return this.findUserByEmail(identifier, { includePassword: true });
+    }
+
+    return await this.findUserByPhoneNumber(identifier, {
+      includePassword: true,
+    });
   }
 
   /**
@@ -39,7 +81,17 @@ class UserAccountRepository {
    * @returns {Promise<object>} Created user document
    */
   async createUserRecord(userAccountData) {
-    const userAccount = new UserAccount(userAccountData);
+    const normalizedData = { ...userAccountData };
+    if (normalizedData.email) {
+      normalizedData.email = normalizedData.email.toLowerCase();
+    }
+    if (normalizedData.phoneNumber) {
+      normalizedData.phoneNumber = normalizedData.phoneNumber.replace(
+        /\s+/g,
+        ""
+      );
+    }
+    const userAccount = new UserAccount(normalizedData);
     return await userAccount.save();
   }
 
@@ -62,6 +114,36 @@ class UserAccountRepository {
    */
   async deleteUserRecord(userId) {
     return await UserAccount.findByIdAndDelete(userId);
+  }
+
+  async setPasswordResetToken(userId, tokenHash, expiresAt) {
+    return await UserAccount.findByIdAndUpdate(
+      userId,
+      {
+        passwordResetToken: tokenHash,
+        passwordResetExpires: expiresAt,
+      },
+      { new: true }
+    );
+  }
+
+  async clearPasswordResetToken(userId) {
+    return await UserAccount.findByIdAndUpdate(
+      userId,
+      {
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+      { new: true }
+    );
+  }
+
+  async findUserByPasswordResetToken(tokenHash) {
+    if (!tokenHash) return null;
+    return await UserAccount.findOne({
+      passwordResetToken: tokenHash,
+      passwordResetExpires: { $gt: new Date() },
+    }).select("+passwordHash +passwordResetToken +passwordResetExpires");
   }
 
   /**
@@ -107,6 +189,18 @@ class UserAccountRepository {
    */
   async doesUsernameExist(username) {
     const count = await UserAccount.countDocuments({ username });
+    return count > 0;
+  }
+
+  /**
+   * Check if phone number already exists
+   * @param {string} phoneNumber - Phone number to check
+   * @returns {Promise<boolean>} True if exists, false otherwise
+   */
+  async doesPhoneNumberExist(phoneNumber) {
+    if (!phoneNumber) return false;
+    const normalized = phoneNumber.replace(/\s+/g, "");
+    const count = await UserAccount.countDocuments({ phoneNumber: normalized });
     return count > 0;
   }
 }

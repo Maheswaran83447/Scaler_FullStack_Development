@@ -6,12 +6,14 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const register = useCallback(async (email, username, password) => {
+  const register = useCallback(async (payload) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authService.register(email, username, password);
-      setUser(response.user);
+      const response = await authService.register(payload);
+      if (response.userProfile) {
+        setUser(response.userProfile);
+      }
       return response;
     } catch (err) {
       setError(err.message);
@@ -21,12 +23,14 @@ export const useAuth = () => {
     }
   }, []);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (payload) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authService.login(email, password);
-      setUser(response.user);
+      const response = await authService.login(payload);
+      if (response.userProfile) {
+        setUser(response.userProfile);
+      }
       return response;
     } catch (err) {
       setError(err.message);
