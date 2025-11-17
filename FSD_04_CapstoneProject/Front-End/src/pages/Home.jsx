@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
+import { Link } from "react-router-dom";
 import NavBar from "../components/NavBar";
 import { CartContext } from "../context/CartContext";
 import { ToastContext } from "../context/ToastContext";
@@ -6,6 +7,9 @@ import { WishlistContext } from "../context/WishlistContext";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import cartifyWelcomeBanner from "../assets/Cartify Welcome Banner.png";
+import mensFashionBanner from "../assets/MensFashion.png";
+import featuredGridBanner from "../assets/Carity_Banner.png";
+import winterSaleBanner from "../assets/WinterSaleBanner.png";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const formatINR = (n) =>
@@ -15,34 +19,71 @@ const formatINR = (n) =>
 const PRODUCT_PLACEHOLDER_IMAGE =
   "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=800&q=80";
 
-const pickProductImage = (product, preference = "default") => {
+const PRODUCT_CARD_IMAGE_WRAPPER_STYLE = {
+  width: "100%",
+  aspectRatio: "4 / 5",
+  background: "#fafafa",
+  borderRadius: 12,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 10,
+  overflow: "hidden",
+  minHeight: 0,
+};
+
+const PRODUCT_CARD_IMAGE_STYLE = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+};
+
+const IMAGE_VARIANT_WIDTHS = {
+  small: 640,
+  medium: 1920,
+  large: 2400,
+};
+
+const getProductImageSources = (product, preference = "medium") => {
   if (!product) {
-    return PRODUCT_PLACEHOLDER_IMAGE;
+    return { src: PRODUCT_PLACEHOLDER_IMAGE, srcSet: "" };
   }
 
-  const variants = product.imageVariants;
-  if (variants && typeof variants === "object") {
-    switch (preference) {
-      case "small":
-        return variants.small || variants.medium || variants.large;
-      case "medium":
-        return variants.medium || variants.large || variants.small;
-      case "large":
-        return variants.large || variants.medium || variants.small;
-      default:
-        return variants.medium || variants.large || variants.small;
-    }
-  }
+  const variants =
+    (product.imageVariants && typeof product.imageVariants === "object"
+      ? product.imageVariants
+      : {}) || {};
 
-  if (Array.isArray(product.images) && product.images[0]) {
-    return product.images[0];
-  }
+  const preferenceOrder = {
+    small: ["small", "medium", "large"],
+    medium: ["medium", "large", "small"],
+    large: ["large", "medium", "small"],
+    default: ["medium", "large", "small"],
+  };
 
-  if (product.image) {
-    return product.image;
-  }
+  const orderedKeys = preferenceOrder[preference] || preferenceOrder.default;
+  const resolvedVariant = orderedKeys.map((key) => variants[key]).find(Boolean);
 
-  return PRODUCT_PLACEHOLDER_IMAGE;
+  const arrayFallback =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images[0]
+      : null;
+
+  const src =
+    resolvedVariant ||
+    arrayFallback ||
+    product.image ||
+    PRODUCT_PLACEHOLDER_IMAGE;
+
+  const srcSet = Object.entries(IMAGE_VARIANT_WIDTHS)
+    .map(([key, width]) => {
+      const url = variants[key];
+      return url ? `${url} ${width}w` : null;
+    })
+    .filter(Boolean)
+    .join(", ");
+
+  return { src, srcSet };
 };
 
 const VEG_FRUITS_BANNER_SVG = `
@@ -458,18 +499,23 @@ const slides = [
     subtitle: "",
     color: "#f6d365",
     image: cartifyWelcomeBanner,
+    alt: "Cartify welcome showcase",
   },
   {
     id: "s2",
-    title: "Seasonal Sale",
-    subtitle: "Up to 50% off select items",
-    color: "#a6c1ee",
+    title: "",
+    subtitle: "",
+    image: mensFashionBanner,
+    color: "#7e7878ff",
+    alt: "Men's fashion collection",
   },
   {
     id: "s3",
-    title: "New Arrivals",
-    subtitle: "Check out the latest",
-    color: "#fbc2eb",
+    title: "",
+    subtitle: "",
+    color: "#e6e2e5ff",
+    image: winterSaleBanner,
+    alt: "Winter sale - up to 50% off",
   },
 ];
 
@@ -520,122 +566,101 @@ const Home = ({ user, onLogout }) => {
 
       <main style={{ padding: "0 2rem 2rem 2rem" }}>
         {/* Carousel */}
-        <section style={{ marginTop: 12 }}>
-          <div
-            style={{
-              position: "relative",
-              height: 300,
-              overflow: "hidden",
-            }}
-          >
+        <section className="hero-carousel" aria-label="Featured promotions">
+          <div className="hero-carousel-frame">
             {slides.map((s, i) => {
               const slideStyle = {
-                position: "absolute",
-                top: 0,
                 left: `${(i - index) * 100}%`,
-                width: "100%",
-                height: "100%",
                 background: s.color,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                transition: "left 400ms ease",
-                color: s.image ? "#fff" : undefined,
+                color: s.image ? "#fff" : "#1f2933",
               };
 
-              if (s.image) {
-                slideStyle.backgroundImage = `url(${s.image})`;
-                slideStyle.backgroundSize = "cover";
-                slideStyle.backgroundPosition = "center";
-                slideStyle.backgroundRepeat = "no-repeat";
-                slideStyle.backgroundColor = s.color || "#000";
-              }
-
               return (
-                <div key={s.id} style={slideStyle}>
-                  <h2 style={{ margin: 0 }}>{s.title}</h2>
-                  <div style={{ opacity: 0.9 }}>{s.subtitle}</div>
+                <div
+                  key={s.id}
+                  className={`hero-slide ${s.image ? "hero-slide--image" : ""}`}
+                  style={slideStyle}
+                >
+                  {s.image && (
+                    <img
+                      src={s.image}
+                      alt={s.alt || s.title || "Carousel slide"}
+                      className="hero-slide-image"
+                    />
+                  )}
+                  <div className="hero-slide-content">
+                    {s.title && <h2>{s.title}</h2>}
+                    {s.subtitle && <div>{s.subtitle}</div>}
+                  </div>
                 </div>
               );
             })}
 
-            {/* controls */}
             <button
-              aria-label="previous"
+              type="button"
+              aria-label="Previous slide"
+              className="hero-carousel-nav hero-carousel-nav--prev"
               onClick={() =>
                 setIndex((i) => (i - 1 + slides.length) % slides.length)
               }
-              style={{
-                position: "absolute",
-                left: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-              }}
             >
               ‹
             </button>
             <button
-              aria-label="next"
+              type="button"
+              aria-label="Next slide"
+              className="hero-carousel-nav hero-carousel-nav--next"
               onClick={() => setIndex((i) => (i + 1) % slides.length)}
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-              }}
             >
               ›
             </button>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: 8,
-              marginTop: 8,
-            }}
-          >
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: 10,
-                  background: i === index ? "#333" : "#ddd",
-                  border: "none",
-                }}
-                aria-label={`go to slide ${i + 1}`}
-              />
-            ))}
-          </div>
-        </section>
 
-        {!loading && !error && products.length > 0 && (
-          <section className="product-strip" aria-label="Quick product peek">
-            <div className="product-strip-track">
-              {products.slice(0, 10).map((p, index) => {
-                const pid = p._id || p.id || index;
-                const imageSrc = pickProductImage(p, "small");
-                return (
-                  <div
-                    className="product-strip-item"
-                    key={pid}
-                    title={p.title || "Product"}
-                  >
-                    <img
-                      src={imageSrc}
-                      alt={p.title || "Product"}
-                      loading="lazy"
-                    />
-                  </div>
-                );
-              })}
+            <div className="hero-carousel-dots">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  className={`hero-carousel-dot ${
+                    i === index ? "is-active" : ""
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
             </div>
-          </section>
-        )}
+          </div>
+
+          {!loading && !error && products.length > 0 && (
+            <div
+              className="product-strip hero-product-strip"
+              role="region"
+              aria-label="Quick product peek"
+            >
+              <div className="product-strip-track">
+                {products.slice(0, 10).map((p, index) => {
+                  const pid = p._id || p.id || index;
+                  const { src, srcSet } = getProductImageSources(p, "small");
+                  return (
+                    <Link
+                      to={`/products/${pid}`}
+                      className="product-strip-item"
+                      key={pid}
+                      title={p.title || "Product"}
+                    >
+                      <img
+                        src={src}
+                        srcSet={srcSet || undefined}
+                        sizes="(max-width: 768px) 25vw, 110px"
+                        alt={p.title || "Product"}
+                        loading="lazy"
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Featured + categories */}
         <section style={{ marginTop: 24 }}>
@@ -646,101 +671,111 @@ const Home = ({ user, onLogout }) => {
 
           {!loading && !error && (
             <div className="featured-grid">
-              {[0, 1].map((rowIndex) => (
-                <div
-                  key={`featured-row-${rowIndex}`}
-                  style={{
-                    marginTop: rowIndex === 0 ? 12 : 18,
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                    gap: 16,
-                  }}
-                >
-                  {products.slice(rowIndex * 3, rowIndex * 3 + 3).map((p) => {
-                    const pid = p._id || p.id;
-                    const imageSrc = pickProductImage(p, "medium");
-                    return (
-                      <div
-                        key={pid}
-                        className="product-card"
-                        style={{
-                          border: "1px solid #e6e6e6",
-                          borderRadius: 8,
-                          padding: 12,
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          position: "relative",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className={`wishlist-toggle ${
-                            isInWishlist(pid) ? "active" : ""
-                          }`}
-                          aria-label={
-                            isInWishlist(pid)
-                              ? "Remove from wishlist"
-                              : "Add to wishlist"
-                          }
-                          aria-pressed={isInWishlist(pid)}
-                          onClick={() =>
-                            handleToggleWishlist({ ...p, id: pid })
-                          }
-                        >
-                          {isInWishlist(pid) ? (
-                            <FavoriteIcon fontSize="inherit" />
-                          ) : (
-                            <FavoriteBorderIcon fontSize="inherit" />
-                          )}
-                        </button>
-                        <div>
-                          <div
-                            style={{
-                              height: 110,
-                              background: "#fafafa",
-                              borderRadius: 6,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginBottom: 8,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <img
-                              src={imageSrc}
-                              alt={p.title || "Product image"}
-                              loading="lazy"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          </div>
-                          <h3 style={{ margin: "6px 0" }}>{p.title}</h3>
-                        </div>
+              <div className="featured-grid-banner">
+                <img
+                  src={featuredGridBanner}
+                  alt="Cartify featured collection"
+                  loading="lazy"
+                />
+              </div>
+              <div className="featured-grid-content">
+                {[0, 1].map((rowIndex) => (
+                  <div
+                    key={`featured-row-${rowIndex}`}
+                    className="featured-grid-row"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 260px)",
+                      gap: 16,
+                    }}
+                  >
+                    {products.slice(rowIndex * 3, rowIndex * 3 + 3).map((p) => {
+                      const pid = p._id || p.id;
+                      const { src, srcSet } = getProductImageSources(
+                        p,
+                        "medium"
+                      );
+                      return (
                         <div
+                          key={pid}
+                          className="product-card"
                           style={{
+                            border: "1px solid #e6e6e6",
+                            borderRadius: 4,
+                            padding: 12,
                             display: "flex",
+                            flexDirection: "column",
                             justifyContent: "space-between",
-                            alignItems: "center",
-                            marginTop: 12,
+                            position: "relative",
+                            width: 260,
+                            minHeight: 350,
                           }}
                         >
-                          <strong>{formatINR(p.price)}</strong>
                           <button
-                            onClick={() => handleAddToCart({ ...p, id: pid })}
-                            style={{ padding: "8px 12px", borderRadius: 6 }}
+                            type="button"
+                            className={`wishlist-toggle ${
+                              isInWishlist(pid) ? "active" : ""
+                            }`}
+                            aria-label={
+                              isInWishlist(pid)
+                                ? "Remove from wishlist"
+                                : "Add to wishlist"
+                            }
+                            aria-pressed={isInWishlist(pid)}
+                            onClick={() =>
+                              handleToggleWishlist({ ...p, id: pid })
+                            }
                           >
-                            Add to cart
+                            {isInWishlist(pid) ? (
+                              <FavoriteIcon fontSize="inherit" />
+                            ) : (
+                              <FavoriteBorderIcon fontSize="inherit" />
+                            )}
                           </button>
+                          <Link
+                            to={`/products/${pid}`}
+                            className="product-card-link"
+                            aria-label={`View details for ${
+                              p.title || "product"
+                            }`}
+                          >
+                            <div style={PRODUCT_CARD_IMAGE_WRAPPER_STYLE}>
+                              <img
+                                src={src}
+                                srcSet={srcSet || undefined}
+                                sizes="(max-width: 1024px) 45vw, 260px"
+                                alt={p.title || "Product image"}
+                                loading="lazy"
+                                style={PRODUCT_CARD_IMAGE_STYLE}
+                              />
+                            </div>
+                            <h3 style={{ margin: "6px 0" }}>{p.title}</h3>
+                          </Link>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginTop: 12,
+                            }}
+                          >
+                            <strong>{formatINR(p.price)}</strong>
+                            <button
+                              onClick={() => handleAddToCart({ ...p, id: pid })}
+                              style={{
+                                padding: "8px 12px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              Add to cart
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -765,114 +800,145 @@ const Home = ({ user, onLogout }) => {
                   return acc;
                 }, {});
 
-                return Object.keys(byCat).map((cat) => (
-                  <section key={cat} style={{ marginTop: 20 }}>
-                    <h3 style={{ marginBottom: 8 }}>{cat}</h3>
-                    {cat === "Veg & Fruits" && (
+                return Object.keys(byCat).map((cat) => {
+                  const displayName =
+                    cat === "Veg & Fruits" ? "Cartify Fresh" : cat;
+                  const showDealsLink = [
+                    "Dress",
+                    "Appliances",
+                    "Electronics",
+                  ].includes(cat);
+                  const categoryQuery = encodeURIComponent(cat);
+
+                  return (
+                    <section key={cat} style={{ marginTop: 20 }}>
                       <div
-                        className="veg-fruits-banner"
-                        style={{ marginBottom: 16, overflowX: "auto" }}
-                        dangerouslySetInnerHTML={{
-                          __html: VEG_FRUITS_BANNER_SVG,
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: showDealsLink ? 6 : 0,
+                          alignItems: "flex-start",
+                          marginBottom: showDealsLink ? 12 : 8,
                         }}
-                      />
-                    )}
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(220px,1fr))",
-                        gap: 12,
-                      }}
-                    >
-                      {byCat[cat].slice(0, 4).map((p) => {
-                        const pid = p._id || p.id;
-                        const imageSrc = pickProductImage(p, "medium");
-                        return (
-                          <div
-                            key={pid}
-                            className="product-card"
-                            style={{
-                              border: "1px solid #e6e6e6",
-                              borderRadius: 8,
-                              padding: 12,
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "space-between",
-                              position: "relative",
-                            }}
+                      >
+                        <h3 style={{ margin: 0 }}>{displayName}</h3>
+                        {showDealsLink && (
+                          <Link
+                            to={`/products?category=${categoryQuery}`}
+                            className="home-category-deals-link"
                           >
-                            <button
-                              type="button"
-                              className={`wishlist-toggle ${
-                                isInWishlist(pid) ? "active" : ""
-                              }`}
-                              aria-label={
-                                isInWishlist(pid)
-                                  ? "Remove from wishlist"
-                                  : "Add to wishlist"
-                              }
-                              aria-pressed={isInWishlist(pid)}
-                              onClick={() =>
-                                handleToggleWishlist({ ...p, id: pid })
-                              }
-                            >
-                              {isInWishlist(pid) ? (
-                                <FavoriteIcon fontSize="inherit" />
-                              ) : (
-                                <FavoriteBorderIcon fontSize="inherit" />
-                              )}
-                            </button>
-                            <div>
-                              <div
-                                style={{
-                                  height: 110,
-                                  background: "#fafafa",
-                                  borderRadius: 6,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  marginBottom: 8,
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <img
-                                  src={imageSrc}
-                                  alt={p.title || "Product image"}
-                                  loading="lazy"
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              </div>
-                              <h4 style={{ margin: "6px 0" }}>{p.title}</h4>
-                            </div>
+                            see more deals →
+                          </Link>
+                        )}
+                      </div>
+                      {cat === "Veg & Fruits" && (
+                        <div
+                          className="veg-fruits-banner"
+                          style={{ marginBottom: 16, overflowX: "auto" }}
+                          dangerouslySetInnerHTML={{
+                            __html: VEG_FRUITS_BANNER_SVG,
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(220px,1fr))",
+                          gap: 12,
+                        }}
+                      >
+                        {byCat[cat].slice(0, 4).map((p) => {
+                          const pid = p._id || p.id;
+                          const { src, srcSet } = getProductImageSources(
+                            p,
+                            "medium"
+                          );
+                          return (
                             <div
+                              key={pid}
+                              className="product-card"
                               style={{
+                                border: "1px solid #e6e6e6",
+                                borderRadius: 8,
+                                padding: 12,
                                 display: "flex",
+                                flexDirection: "column",
                                 justifyContent: "space-between",
-                                alignItems: "center",
-                                marginTop: 12,
+                                position: "relative",
                               }}
                             >
-                              <strong>{formatINR(p.price)}</strong>
                               <button
-                                onClick={() =>
-                                  handleAddToCart({ ...p, id: pid })
+                                type="button"
+                                className={`wishlist-toggle ${
+                                  isInWishlist(pid) ? "active" : ""
+                                }`}
+                                aria-label={
+                                  isInWishlist(pid)
+                                    ? "Remove from wishlist"
+                                    : "Add to wishlist"
                                 }
-                                style={{ padding: "8px 12px", borderRadius: 6 }}
+                                aria-pressed={isInWishlist(pid)}
+                                onClick={() =>
+                                  handleToggleWishlist({ ...p, id: pid })
+                                }
                               >
-                                Add to cart
+                                {isInWishlist(pid) ? (
+                                  <FavoriteIcon fontSize="inherit" />
+                                ) : (
+                                  <FavoriteBorderIcon fontSize="inherit" />
+                                )}
                               </button>
+                              <Link
+                                to={`/products/${pid}`}
+                                className="product-card-link"
+                                aria-label={`View details for ${
+                                  p.title || "product"
+                                }`}
+                              >
+                                <div style={PRODUCT_CARD_IMAGE_WRAPPER_STYLE}>
+                                  <img
+                                    src={src}
+                                    srcSet={srcSet || undefined}
+                                    sizes="(max-width: 768px) 45vw, 220px"
+                                    alt={p.title || "Product image"}
+                                    loading="lazy"
+                                    style={PRODUCT_CARD_IMAGE_STYLE}
+                                  />
+                                </div>
+                                <h4 style={{ margin: "6px 0" }}>{p.title}</h4>
+                              </Link>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  marginTop: 12,
+                                }}
+                              >
+                                <strong>{formatINR(p.price)}</strong>
+                                <button
+                                  onClick={() =>
+                                    handleAddToCart({ ...p, id: pid })
+                                  }
+                                  style={{
+                                    padding: "8px 12px",
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  Add to cart
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ));
+                          );
+                        })}
+                      </div>
+                      {showDealsLink && (
+                        <hr className="home-category-divider" />
+                      )}
+                    </section>
+                  );
+                });
               })()}
             </div>
           )}

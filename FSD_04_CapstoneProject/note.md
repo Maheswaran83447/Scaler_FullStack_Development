@@ -1,5 +1,14 @@
 # Analyse Changes
 
+## Commits on 18 Nov 2025
+
+###- Added seasonal homepage banners and supporting imagery to highlight ongoing campaigns.
+
+### WIshlist items
+
+- Updated product cards with a wishlist heart toggle; clicking saves the item for later inside the new wishlist context.
+- Implemented a dedicated wishlist page that lists saved products and supports toggling the heart again to remove them from the list.
+
 ## Commits on 17 Nov 2025
 
 - Expanded `AuthService` with secure credential verification, bcrypt password hashing, and structured error messaging for bad sign-ins.

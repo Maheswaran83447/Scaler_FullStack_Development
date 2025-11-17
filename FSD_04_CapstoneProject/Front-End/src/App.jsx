@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -6,7 +6,7 @@ import {
   useNavigate,
   Link,
 } from "react-router-dom";
-import { CartProvider } from "./context/CartContext";
+import { CartContext, CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
 import "./App.css";
 import Home from "./pages/Home";
@@ -22,15 +22,17 @@ import OrderHistory from "./pages/OrderHistory";
 import { ToastContext } from "./context/ToastContext";
 import authService from "./services/authService";
 import CartifyLogo from "./components/CartifyLogo";
-import { WishlistProvider } from "./context/WishlistContext";
+import { WishlistContext, WishlistProvider } from "./context/WishlistContext";
+import Wishlist from "./pages/Wishlist";
+import Account from "./pages/Account";
 
 function LoginPane({ onGuest, onLogin, isLoading, authError }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setFormError(null);
 
     try {
@@ -60,7 +62,7 @@ function LoginPane({ onGuest, onLogin, isLoading, authError }) {
               type="text"
               placeholder="you@example.com"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(event) => setIdentifier(event.target.value)}
               required
               className="auth-input"
               disabled={isLoading}
@@ -76,7 +78,7 @@ function LoginPane({ onGuest, onLogin, isLoading, authError }) {
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               required
               className="auth-input"
               disabled={isLoading}
@@ -112,80 +114,119 @@ function LoginPane({ onGuest, onLogin, isLoading, authError }) {
 }
 
 function AppRoutesWrapper() {
-  const { user, loginAsGuest, logout, register, login, loading, error } =
-    useAuth();
+  const auth = useAuth();
+  return (
+    <WishlistProvider user={auth.user}>
+      <AppRoutesInner auth={auth} />
+    </WishlistProvider>
+  );
+}
+
+function AppRoutesInner({ auth }) {
   const navigate = useNavigate();
   const { showToast } = useContext(ToastContext);
+  const { clearCart } = useContext(CartContext);
+  const { clearWishlist } = useContext(WishlistContext);
   const [auxLoading, setAuxLoading] = useState(false);
 
-  const handleGuest = () => {
+  const { user, loginAsGuest, logout, register, login, loading, error } = auth;
+
+  const hasAccountSession = Boolean(user && !user.isGuest);
+
+  const resetClientState = useCallback(() => {
+    clearCart();
+    clearWishlist();
+  }, [clearCart, clearWishlist]);
+
+  const handleGuest = useCallback(() => {
+    if (hasAccountSession) {
+      resetClientState();
+    }
     loginAsGuest();
     navigate("/home");
-  };
+  }, [hasAccountSession, resetClientState, loginAsGuest, navigate]);
 
-  const handleLogin = async (credentials) => {
-    try {
-      await login(credentials);
-      showToast("Signed in successfully", { type: "success" });
-      navigate("/home");
-    } catch (err) {
-      showToast(err.message || "Login failed", { type: "error" });
-      throw err;
-    }
-  };
+  const handleLogin = useCallback(
+    async (credentials) => {
+      try {
+        await login(credentials);
+        showToast("Signed in successfully", { type: "success" });
+        navigate("/home");
+      } catch (err) {
+        showToast(err.message || "Login failed", { type: "error" });
+        throw err;
+      }
+    },
+    [login, navigate, showToast]
+  );
 
-  const handleRegister = async (payload) => {
-    try {
-      await register(payload);
-      showToast("Account created", { type: "success" });
-      navigate("/home");
-    } catch (err) {
-      showToast(err.message || "Registration failed", { type: "error" });
-      throw err;
-    }
-  };
+  const handleRegister = useCallback(
+    async (payload) => {
+      try {
+        resetClientState();
+        await register(payload);
+        showToast("Account created", { type: "success" });
+        navigate("/home");
+      } catch (err) {
+        showToast(err.message || "Registration failed", { type: "error" });
+        throw err;
+      }
+    },
+    [navigate, register, resetClientState, showToast]
+  );
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout();
-    navigate("/");
-  };
+    resetClientState();
+    navigate("/home", { replace: true });
+    showToast("Signed out", { type: "info" });
+  }, [logout, navigate, resetClientState, showToast]);
 
-  const handleForgotPassword = async (identifier) => {
-    setAuxLoading(true);
-    try {
-      const response = await authService.requestPasswordReset({ identifier });
-      showToast(response?.message || "Reset link sent to your email", {
-        type: "success",
-      });
-      return response;
-    } catch (err) {
-      showToast(err.message || "Unable to send reset email", {
-        type: "error",
-      });
-      throw err;
-    } finally {
-      setAuxLoading(false);
-    }
-  };
+  const handleForgotPassword = useCallback(
+    async (identifier) => {
+      setAuxLoading(true);
+      try {
+        const response = await authService.requestPasswordReset({ identifier });
+        showToast(response?.message || "Reset link sent to your email", {
+          type: "success",
+        });
+        return response;
+      } catch (err) {
+        showToast(err.message || "Unable to send reset email", {
+          type: "error",
+        });
+        throw err;
+      } finally {
+        setAuxLoading(false);
+      }
+    },
+    [showToast]
+  );
 
-  const handleResetPassword = async ({ token, password }) => {
-    setAuxLoading(true);
-    try {
-      const response = await authService.resetPassword({ token, password });
-      showToast(response?.message || "Password updated. You can sign in now.", {
-        type: "success",
-      });
-      navigate("/");
-      return response;
-    } catch (err) {
-      showToast(err.message || "Unable to reset password", {
-        type: "error",
-      });
-      throw err;
-    } finally {
-      setAuxLoading(false);
-    }
-  };
+  const handleResetPassword = useCallback(
+    async ({ token, password }) => {
+      setAuxLoading(true);
+      try {
+        const response = await authService.resetPassword({ token, password });
+        showToast(
+          response?.message || "Password updated. You can sign in now.",
+          {
+            type: "success",
+          }
+        );
+        navigate("/");
+        return response;
+      } catch (err) {
+        showToast(err.message || "Unable to reset password", {
+          type: "error",
+        });
+        throw err;
+      } finally {
+        setAuxLoading(false);
+      }
+    },
+    [navigate, showToast]
+  );
 
   return (
     <Routes>
@@ -243,6 +284,14 @@ function AppRoutesWrapper() {
         element={<ProductDetails user={user} onLogout={handleLogout} />}
       />
       <Route
+        path="/wishlist"
+        element={<Wishlist user={user} onLogout={handleLogout} />}
+      />
+      <Route
+        path="/account"
+        element={<Account user={user} onLogout={handleLogout} />}
+      />
+      <Route
         path="/checkout"
         element={<PlaceOrder user={user} onLogout={handleLogout} />}
       />
@@ -254,7 +303,6 @@ function AppRoutesWrapper() {
         path="/orders"
         element={<OrderHistory user={user} onLogout={handleLogout} />}
       />
-      {/* fallback to home */}
       <Route path="*" element={<Home user={user} onLogout={handleLogout} />} />
     </Routes>
   );
@@ -265,9 +313,7 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <CartProvider>
-          <WishlistProvider>
-            <AppRoutesWrapper />
-          </WishlistProvider>
+          <AppRoutesWrapper />
         </CartProvider>
       </ToastProvider>
     </BrowserRouter>
