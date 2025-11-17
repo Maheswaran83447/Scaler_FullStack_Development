@@ -2,6 +2,9 @@ import React, { useContext, useState } from "react";
 import NavBar from "../components/NavBar";
 import { CartContext } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
+import { ToastContext } from "../context/ToastContext";
+import orderService from "../services/orderService";
+import paymentService from "../services/paymentService";
 
 const formatINR = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
@@ -15,6 +18,7 @@ const mockAddresses = [
 
 const PlaceOrder = ({ user, onLogout }) => {
   const { cart, clearCart } = useContext(CartContext);
+  const { showToast } = useContext(ToastContext);
   const navigate = useNavigate();
 
   const [addresses, setAddresses] = useState(mockAddresses);
@@ -28,13 +32,14 @@ const PlaceOrder = ({ user, onLogout }) => {
     type: "home",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentMethod, setPaymentMethod] = useState("card");
   const [card, setCard] = useState({
     number: "",
     name: "",
     expiry: "",
     cvv: "",
   });
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const total = cart.reduce((s, it) => s + it.price * (it.quantity || 1), 0);
 
@@ -51,15 +56,145 @@ const PlaceOrder = ({ user, onLogout }) => {
     setShowAdd(false);
   }
 
-  function handlePay() {
-    // simulate payment processing
-    alert(
-      `Order placed. Payment method: ${paymentMethod}. Total: ${formatINR(
-        total
-      )}`
-    );
+  async function submitOrder(orderPayloadOverrides = {}) {
+    const response = await orderService.createOrder(orderPayloadOverrides);
+    if (!response?.success) {
+      throw new Error(response?.message || "Unable to place order");
+    }
+
+    showToast("Order placed successfully", { type: "success" });
     clearCart();
-    navigate("/home");
+    navigate("/orders");
+  }
+
+  async function handlePay() {
+    if (!cart.length) {
+      showToast("Your cart is empty", { type: "info" });
+      return;
+    }
+
+    if (total <= 0) {
+      showToast("Order total must be greater than zero", { type: "warning" });
+      return;
+    }
+
+    const address = addresses.find((a) => a.id === selectedAddress);
+    if (!address) {
+      showToast("Select a delivery address before paying", {
+        type: "warning",
+      });
+      return;
+    }
+
+    const orderPayload = {
+      items: cart.map((item) => ({
+        productId: item.id || item._id || null,
+        name: item.title || item.name || "Cartify item",
+        price: item.price,
+        quantity: item.quantity || 1,
+      })),
+      paymentMethod,
+      shippingAddress: {
+        label: address.label,
+        line: address.line,
+      },
+      totalAmount: total,
+    };
+
+    setIsPlacingOrder(true);
+    let shouldResetLoading = true;
+    try {
+      if (paymentMethod === "cod") {
+        await submitOrder({ ...orderPayload, paymentStatus: "pending" });
+        return;
+      }
+
+      if (typeof window === "undefined" || !window.Razorpay) {
+        throw new Error(
+          "Payment gateway unavailable. Please refresh and try again."
+        );
+      }
+
+      shouldResetLoading = false;
+
+      const paymentInit = await paymentService.createOrder({
+        amount: total,
+        currency: "INR",
+        notes: {
+          items: String(cart.length),
+          subtotal: String(total),
+        },
+      });
+
+      if (!paymentInit?.success) {
+        throw new Error(
+          paymentInit?.message || "Unable to initialise payment session"
+        );
+      }
+
+      const options = {
+        key: paymentInit.key,
+        amount: paymentInit.amount,
+        currency: paymentInit.currency,
+        name: "Cartify",
+        description: "Secure payment",
+        order_id: paymentInit.orderId,
+        prefill: {
+          name: user?.name || "Cartify Shopper",
+          email: user?.email || "shopper@example.com",
+          contact: user?.phone || "",
+        },
+        notes: {
+          shippingAddress: `${address.label}: ${address.line}`,
+        },
+        theme: {
+          color: "#222222",
+        },
+        handler: async (paymentResponse) => {
+          try {
+            await paymentService.verifyPayment(paymentResponse);
+            await submitOrder({
+              ...orderPayload,
+              paymentStatus: "paid",
+              paymentDetails: {
+                provider: "razorpay",
+                razorpayOrderId: paymentResponse.razorpay_order_id,
+                razorpayPaymentId: paymentResponse.razorpay_payment_id,
+              },
+            });
+          } catch (error) {
+            showToast(error.message || "Payment verification failed", {
+              type: "error",
+            });
+          } finally {
+            setIsPlacingOrder(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            showToast("Payment flow cancelled", { type: "info" });
+            setIsPlacingOrder(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        const description = response?.error?.description;
+        showToast(description || "Payment failed", { type: "error" });
+        setIsPlacingOrder(false);
+      });
+
+      rzp.open();
+    } catch (error) {
+      showToast(error.message || "Unable to place order", {
+        type: "error",
+      });
+    } finally {
+      if (shouldResetLoading) {
+        setIsPlacingOrder(false);
+      }
+    }
   }
 
   return (
@@ -259,43 +394,9 @@ const PlaceOrder = ({ user, onLogout }) => {
                 UPI
               </label>
 
-              {paymentMethod === "card" && (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <input
-                    placeholder="Card number"
-                    value={card.number}
-                    onChange={(e) =>
-                      setCard((c) => ({ ...c, number: e.target.value }))
-                    }
-                  />
-                  <input
-                    placeholder="Name on card"
-                    value={card.name}
-                    onChange={(e) =>
-                      setCard((c) => ({ ...c, name: e.target.value }))
-                    }
-                  />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      placeholder="MM/YY"
-                      value={card.expiry}
-                      onChange={(e) =>
-                        setCard((c) => ({ ...c, expiry: e.target.value }))
-                      }
-                    />
-                    <input
-                      placeholder="CVV"
-                      value={card.cvv}
-                      onChange={(e) =>
-                        setCard((c) => ({ ...c, cvv: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-
               <div style={{ marginTop: 12 }}>
                 <button
+                  type="button"
                   onClick={handlePay}
                   style={{
                     padding: "10px 14px",
@@ -303,8 +404,11 @@ const PlaceOrder = ({ user, onLogout }) => {
                     color: "#fff",
                     borderRadius: 6,
                   }}
+                  disabled={isPlacingOrder || cart.length === 0}
                 >
-                  Pay {formatINR(total)}
+                  {isPlacingOrder
+                    ? "Placing order..."
+                    : `Pay ${formatINR(total)}`}
                 </button>
               </div>
             </div>

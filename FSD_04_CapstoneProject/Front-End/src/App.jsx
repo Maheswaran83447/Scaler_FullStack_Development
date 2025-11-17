@@ -1,9 +1,13 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { useContext, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useNavigate,
+  Link,
+} from "react-router-dom";
 import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
-import Lottie from "lottie-react";
-import animationData from "./assets/Landing Page - Animation.json";
 import "./App.css";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -11,101 +15,134 @@ import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
 import PlaceOrder from "./pages/PlaceOrder";
 import useAuth from "./hooks/useAuth";
+import SignUp from "./pages/SignUp";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import OrderHistory from "./pages/OrderHistory";
+import { ToastContext } from "./context/ToastContext";
+import authService from "./services/authService";
+import CartifyLogo from "./components/CartifyLogo";
+import { WishlistProvider } from "./context/WishlistContext";
 
-function LoginPane({ onGuest }) {
-  const [username, setUsername] = useState("");
+function LoginPane({ onGuest, onLogin, isLoading, authError }) {
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [formError, setFormError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // real login requires backend; keep simple for now
-    alert(`Submitted: ${username}`);
+    setFormError(null);
+
+    try {
+      await onLogin({ identifier, password });
+    } catch (error) {
+      setFormError(error.message || "Login failed");
+    }
   };
 
   return (
-    <div className="landing-container">
-      <div className="animation-section">
-        <Lottie
-          animationData={animationData}
-          loop={true}
-          autoplay={true}
-          className="lottie-animation"
-        />
-      </div>
-
-      <div className="divider"></div>
-
-      <div className="login-section">
-        <div className="login-box" role="dialog" aria-label="Login">
-          <form onSubmit={handleSubmit} className="login-form">
+    <div className="auth-page">
+      <div className="auth-card" role="dialog" aria-label="Sign in">
+        <div className="auth-logo">
+          <CartifyLogo />
+        </div>
+        <h1 className="auth-title">Sign in to Cartify</h1>
+        <p className="auth-subtitle">
+          Welcome back! Enter your credentials to continue.
+        </p>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="identifier">
+              Email or phone number
+            </label>
             <input
+              id="identifier"
               type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              placeholder="you@example.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
-              className="login-input"
+              className="auth-input"
+              disabled={isLoading}
+              autoComplete="username"
             />
+          </div>
+          <div className="auth-field">
+            <label className="auth-label" htmlFor="login-password">
+              Password
+            </label>
             <input
+              id="login-password"
               type="password"
-              placeholder="Password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="login-input"
+              className="auth-input"
+              disabled={isLoading}
+              autoComplete="current-password"
             />
-            <button type="submit" className="login-button">
-              Sign in
-            </button>
-          </form>
-
-          <div className="signup-link">
-            New user? <a href="/signup">Sign up</a>
           </div>
-
-          <div className="divider-section">
-            <div className="divider-line"></div>
-            <span className="divider-text">or</span>
-            <div className="divider-line"></div>
+          {(formError || authError) && (
+            <p className="form-error" role="alert">
+              {formError || authError}
+            </p>
+          )}
+          <button type="submit" className="auth-submit" disabled={isLoading}>
+            {isLoading ? "Signing in..." : "Sign in"}
+          </button>
+          <div className="auth-secondary-links">
+            <Link to="/forgot-password" className="auth-link">
+              Forgot your password?
+            </Link>
           </div>
-
-          <div className="social-login">
-            <button
-              type="button"
-              className="social-icon"
-              title="Login with Google"
-              onClick={() => console.log("Google login")}
-            >
-              🔵
-            </button>
-            <button
-              type="button"
-              className="social-icon"
-              title="Login with Facebook"
-              onClick={() => console.log("Facebook login")}
-            >
-              📘
-            </button>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <button className="guest-button" onClick={onGuest}>
-              Explore as guest
-            </button>
-          </div>
+        </form>
+        <div className="auth-divider">
+          <span>or</span>
         </div>
+        <button className="auth-secondary" onClick={onGuest} type="button">
+          Explore as guest
+        </button>
+        <p className="auth-footer">
+          New to Cartify? <Link to="/signup">Create an account</Link>
+        </p>
       </div>
     </div>
   );
 }
 
 function AppRoutesWrapper() {
-  const { user, loginAsGuest, logout } = useAuth();
+  const { user, loginAsGuest, logout, register, login, loading, error } =
+    useAuth();
   const navigate = useNavigate();
+  const { showToast } = useContext(ToastContext);
+  const [auxLoading, setAuxLoading] = useState(false);
 
   const handleGuest = () => {
     loginAsGuest();
     navigate("/home");
+  };
+
+  const handleLogin = async (credentials) => {
+    try {
+      await login(credentials);
+      showToast("Signed in successfully", { type: "success" });
+      navigate("/home");
+    } catch (err) {
+      showToast(err.message || "Login failed", { type: "error" });
+      throw err;
+    }
+  };
+
+  const handleRegister = async (payload) => {
+    try {
+      await register(payload);
+      showToast("Account created", { type: "success" });
+      navigate("/home");
+    } catch (err) {
+      showToast(err.message || "Registration failed", { type: "error" });
+      throw err;
+    }
   };
 
   const handleLogout = () => {
@@ -113,9 +150,86 @@ function AppRoutesWrapper() {
     navigate("/");
   };
 
+  const handleForgotPassword = async (identifier) => {
+    setAuxLoading(true);
+    try {
+      const response = await authService.requestPasswordReset({ identifier });
+      showToast(response?.message || "Reset link sent to your email", {
+        type: "success",
+      });
+      return response;
+    } catch (err) {
+      showToast(err.message || "Unable to send reset email", {
+        type: "error",
+      });
+      throw err;
+    } finally {
+      setAuxLoading(false);
+    }
+  };
+
+  const handleResetPassword = async ({ token, password }) => {
+    setAuxLoading(true);
+    try {
+      const response = await authService.resetPassword({ token, password });
+      showToast(response?.message || "Password updated. You can sign in now.", {
+        type: "success",
+      });
+      navigate("/");
+      return response;
+    } catch (err) {
+      showToast(err.message || "Unable to reset password", {
+        type: "error",
+      });
+      throw err;
+    } finally {
+      setAuxLoading(false);
+    }
+  };
+
   return (
     <Routes>
-      <Route path="/" element={<LoginPane onGuest={handleGuest} />} />
+      <Route
+        path="/"
+        element={
+          <LoginPane
+            onGuest={handleGuest}
+            onLogin={handleLogin}
+            isLoading={loading}
+            authError={error}
+          />
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <SignUp
+            onRegister={handleRegister}
+            isLoading={loading}
+            authError={error}
+          />
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <ForgotPassword
+            onRequestReset={handleForgotPassword}
+            isLoading={loading || auxLoading}
+            authError={null}
+          />
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <ResetPassword
+            onResetPassword={handleResetPassword}
+            isLoading={loading || auxLoading}
+            authError={null}
+          />
+        }
+      />
       <Route
         path="/home"
         element={<Home user={user} onLogout={handleLogout} />}
@@ -136,6 +250,10 @@ function AppRoutesWrapper() {
         path="/cart"
         element={<Cart user={user} onLogout={handleLogout} />}
       />
+      <Route
+        path="/orders"
+        element={<OrderHistory user={user} onLogout={handleLogout} />}
+      />
       {/* fallback to home */}
       <Route path="*" element={<Home user={user} onLogout={handleLogout} />} />
     </Routes>
@@ -147,7 +265,9 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <CartProvider>
-          <AppRoutesWrapper />
+          <WishlistProvider>
+            <AppRoutesWrapper />
+          </WishlistProvider>
         </CartProvider>
       </ToastProvider>
     </BrowserRouter>

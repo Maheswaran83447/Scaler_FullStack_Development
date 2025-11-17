@@ -3,19 +3,32 @@ import NavBar from "../components/NavBar";
 import { Link } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { ToastContext } from "../context/ToastContext";
+import { WishlistContext } from "../context/WishlistContext";
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import FavoriteIcon from "@mui/icons-material/Favorite";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const formatINR = (n) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
     n
   );
+const PRODUCT_PLACEHOLDER_IMAGE =
+  "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=800&q=80";
 
 const Products = ({ user, onLogout }) => {
   const { addToCart } = useContext(CartContext);
   const { showToast } = useContext(ToastContext);
+  const { isInWishlist, toggleWishlistItem } = useContext(WishlistContext);
   const handleAddToCart = (item) => {
     addToCart(item);
     showToast("Item added to cart successfully", { type: "success" });
+  };
+
+  const handleToggleWishlist = (item) => {
+    const added = toggleWishlistItem(item);
+    showToast(added ? "Item added to wishlist" : "Item removed from wishlist", {
+      type: added ? "success" : "error",
+    });
   };
 
   const [products, setProducts] = useState([]);
@@ -69,9 +82,14 @@ const Products = ({ user, onLogout }) => {
             >
               {products.map((p) => {
                 const pid = p._id || p.id;
+                const imageSrc =
+                  (Array.isArray(p.images) && p.images[0]) ||
+                  p.image ||
+                  PRODUCT_PLACEHOLDER_IMAGE;
                 return (
                   <div
                     key={pid}
+                    className="product-card"
                     style={{
                       border: "1px solid #ddd",
                       padding: "1rem",
@@ -79,9 +97,52 @@ const Products = ({ user, onLogout }) => {
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
+                      position: "relative",
                     }}
                   >
+                    <button
+                      type="button"
+                      className={`wishlist-toggle ${
+                        isInWishlist(pid) ? "active" : ""
+                      }`}
+                      aria-label={
+                        isInWishlist(pid)
+                          ? "Remove from wishlist"
+                          : "Add to wishlist"
+                      }
+                      aria-pressed={isInWishlist(pid)}
+                      onClick={() => handleToggleWishlist({ ...p, id: pid })}
+                    >
+                      {isInWishlist(pid) ? (
+                        <FavoriteIcon fontSize="inherit" />
+                      ) : (
+                        <FavoriteBorderIcon fontSize="inherit" />
+                      )}
+                    </button>
                     <div>
+                      <div
+                        style={{
+                          height: 140,
+                          background: "#fafafa",
+                          borderRadius: 6,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginBottom: 12,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <img
+                          src={imageSrc}
+                          alt={p.title || "Product image"}
+                          loading="lazy"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
                       <h3>{p.title}</h3>
                       <p>{p.description}</p>
                     </div>
