@@ -59,4 +59,15 @@ router.post(
   (req, res) => AuthHandler.handlePasswordReset(req, res)
 );
 
+router.post(
+  "/change-password",
+  [
+    body("userId").isMongoId().withMessage("A valid userId is required"),
+    body("newPassword")
+      .isLength({ min: 6 })
+      .withMessage("Password must be at least 6 characters"),
+  ],
+  (req, res) => AuthHandler.handlePasswordChange(req, res)
+);
+
 module.exports = router;

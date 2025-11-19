@@ -88,6 +88,17 @@ export const authService = {
       throw new Error(error.message || "Unable to reset password");
     }
   },
+
+  async changePassword({ userId, newPassword }) {
+    try {
+      return await apiClient.post("/api/auth/change-password", {
+        userId,
+        newPassword,
+      });
+    } catch (error) {
+      throw new Error(error.message || "Unable to update password");
+    }
+  },
 };
 
 export default authService;

@@ -241,6 +241,34 @@ class UserAuthenticationService {
       message: "Password updated successfully",
     };
   }
+
+  async changePassword(userId, newPassword) {
+    if (!userId) {
+      throw new Error("User ID is required to update password");
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("Password must be at least 6 characters");
+    }
+
+    const user = await this.userRepository.findUserById(userId, {
+      includePassword: true,
+    });
+
+    if (!user) {
+      throw new Error("User account not found");
+    }
+
+    user.passwordHash = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+
+    return {
+      success: true,
+      message: "Password updated successfully",
+    };
+  }
 }
 
 module.exports = new UserAuthenticationService();

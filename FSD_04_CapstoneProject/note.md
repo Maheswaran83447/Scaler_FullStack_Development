@@ -1,10 +1,49 @@
 # Analyse Changes
 
-## Commits on 18 Nov 2025
+## Commits on 19 Nov 2025
 
-###- Added seasonal homepage banners and supporting imagery to highlight ongoing campaigns.
+### AuthHandler.js (Back-End)
 
-### WIshlist items
+Added: New handlePasswordChange method
+
+Accepts userId and newPassword from request body
+Validates input using express-validator
+Calls authService.changePassword() to update the password
+Returns success/error response
+
+### authRoutes.js (Back-End)
+
+Added: New /change-password POST route
+
+Validates userId (must be valid MongoDB ID) and newPassword (min 6 chars)
+Routes to AuthHandler.handlePasswordChange()
+
+### AuthService.js (Back-End)
+
+Added: New changePassword method
+
+Takes userId and newPassword parameters
+Validates inputs (userId required, password min 6 chars)
+Finds user by ID with password included
+Updates password hash and clears any password reset tokens
+Returns success message
+
+### authService.js (Front-End)
+
+Added: New changePassword function
+
+Makes POST request to /api/auth/change-password
+Sends userId and newPassword in request body
+Handles errors with descriptive messages
+
+### Home.old.jsx (Front-End)
+
+New file: This is a completely new file (392 lines)
+
+Appears to be a backup/archive of an older version of the Home component
+Contains the full home page implementation with carousel, product grid, wishlist functionality, etc.
+
+### Wishlist items
 
 - Updated product cards with a wishlist heart toggle; clicking saves the item for later inside the new wishlist context.
 - Implemented a dedicated wishlist page that lists saved products and supports toggling the heart again to remove them from the list.

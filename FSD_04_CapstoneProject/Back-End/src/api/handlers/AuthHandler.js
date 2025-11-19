@@ -205,6 +205,29 @@ class UserAuthenticationHandler {
       });
     }
   }
+
+  async handlePasswordChange(req, res) {
+    try {
+      const validationErrors = validationResult(req);
+      if (!validationErrors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed",
+          errors: validationErrors.array(),
+        });
+      }
+
+      const { userId, newPassword } = req.body;
+      const result = await this.authService.changePassword(userId, newPassword);
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: error.message || "Unable to update password",
+      });
+    }
+  }
 }
 
 module.exports = new UserAuthenticationHandler();
