@@ -11,8 +11,12 @@ class UserAccountRepository {
    * @param {string} userId - MongoDB user ID
    * @returns {Promise<object>} User account document
    */
-  async findUserById(userId) {
-    return await UserAccount.findById(userId);
+  async findUserById(userId, options = {}) {
+    const query = UserAccount.findById(userId);
+    if (options.includePassword) {
+      query.select("+passwordHash");
+    }
+    return await query;
   }
 
   /**

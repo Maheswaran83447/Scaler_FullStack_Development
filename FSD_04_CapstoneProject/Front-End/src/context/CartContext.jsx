@@ -40,10 +40,15 @@ export const CartProvider = ({ children }) => {
 
   const updateQuantity = (productId, quantity) => {
     setCart((prev) => {
-      const copy = prev.map((it) =>
-        it.id === productId ? { ...it, quantity } : it
-      );
-      return copy.filter((it) => it.quantity > 0);
+      const copy = prev.map((it) => {
+        if (it.id !== productId) return it;
+        const normalized = Number(quantity);
+        const safeQuantity = Number.isFinite(normalized)
+          ? Math.max(0, normalized)
+          : 0;
+        return { ...it, quantity: safeQuantity };
+      });
+      return copy.filter((it) => (it.quantity || 0) > 0);
     });
   };
 

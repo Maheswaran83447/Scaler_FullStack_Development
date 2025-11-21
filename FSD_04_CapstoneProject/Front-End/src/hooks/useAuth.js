@@ -47,7 +47,9 @@ export const useAuth = () => {
   }, []);
 
   const loginAsGuest = useCallback(() => {
-    const guest = { name: "Guest", id: "guest" };
+    authService.logout();
+    const guest = { name: "Guest", isGuest: true };
+    setError(null);
     setUser(guest);
     return guest;
   }, []);

@@ -44,6 +44,9 @@
 .delivery-location {
   font-weight: 700;
   color: #111;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .nav-center {
   flex: 1;

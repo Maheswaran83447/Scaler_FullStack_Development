@@ -1,5 +1,95 @@
 # Analyse Changes
 
+## Commits on 21 Nov 2025
+
+### UserAddressRepository.js (Back-End)
+
+- **New File**: Complete repository implementation for managing user addresses
+- Added CRUD operations: `createAddress`, `getAddressesForUser`, `getAddressById`, `updateAddress`, `deleteAddress`
+- Implemented smart default flag management with `clearDefaultFlags` and `clearCurrentAddress` methods
+- Added `setDefaultAddress` and `setCurrentAddress` for address preference handling
+- Automatic handling of shipping/billing default flags during creation and updates
+
+### UserRepository.js (Back-End)
+
+- Enhanced `findUserById()` method with flexible options parameter
+- Added support for `includePassword` option to explicitly select password hash field
+- Allows conditional password field retrieval (excluded by default in schema)
+
+### NavBar.jsx (Front-End)
+
+- Added dynamic delivery location feature that displays user's current/default address
+- Implemented `resolveUserId()` helper for safe user ID extraction across different data shapes
+- Created `deriveLocationFromAddressEntry()` to intelligently parse address objects
+- Integrated `addressService.list()` to fetch and display user addresses on component mount
+- Added fallback to default location "Chennai · 600001" for guests or users without saved addresses
+- Improved guest detection with `isGuest` flag validation
+- Enhanced profile menu to only render for authenticated users (excludes guests)
+- Changed Login from Link to button for better navigation control
+- Added localStorage persistence for delivery location with `DELIVERY_STORAGE_KEY`
+- Implemented proper cleanup with cancellation tokens in address fetching effect
+
+### nav.css (Front-End)
+
+- Added `max-width: 260px` to `.delivery-location` class to prevent layout overflow
+- Applied `overflow: hidden` and `text-overflow: ellipsis` for graceful text truncation
+
+### CartContext.jsx (Front-End)
+
+- Enhanced `updateQuantity()` method with robust number validation
+- Added `Number.isFinite()` checks to prevent NaN values
+- Implemented `Math.max(0, normalized)` to ensure non-negative quantities
+- Improved edge case handling for invalid quantity inputs
+
+### useAuth.js (Front-End)
+
+- Enhanced `loginAsGuest()` method to call `authService.logout()` first
+- Changed guest object to use `isGuest: true` flag (replacing `id: "guest"`)
+- Added `setError(null)` to clear any previous authentication errors
+
+### Account.jsx (Front-End)
+
+- **New File**: Complete account management page implementation (531 lines)
+- Created tabbed interface with sections: Profile Overview, Saved Addresses, Change Password, Contact Support
+- Implemented custom SVG icons: `IconHeadphones`, `IconMail`, `IconPhone`, `IconWhatsapp`
+- Added address management with list view, delete functionality, and badge system
+- Built password change form with validation (min 6 characters, match confirmation)
+- Integrated contact support section with multiple communication channels
+- Added user avatar display with initials fallback
+- Implemented `resolveUserId()`, `resolveAddressId()`, `buildAddressLines()` helper functions
+- Added guest user protection with redirect to login page
+- Created responsive sidebar navigation with active state highlighting
+
+### account.css (Front-End)
+
+- **New File**: Complete styling for Account page (345 lines)
+- Implemented modern card-based layout with gradient background
+- Created responsive grid system with sidebar and content area
+- Styled profile avatar with circular design and image support
+- Designed badge system for address tags (Current, Default shipping, Default billing)
+- Added contact card styling with icon integration
+- Implemented form styling for password change feature
+- Applied consistent color scheme using blue/slate palette
+- Added mobile responsiveness with breakpoint at 960px
+
+### Cart.jsx (Front-End)
+
+- Complete redesign of cart page with professional UI (244 lines)
+- Added product image display with fallback to placeholder
+- Implemented price resolution helpers: `resolveUnitPrice()`, `resolveOriginalPrice()`, `resolveItemImage()`
+- Created quantity controls with +/- buttons and manual input
+- Added empty cart state with illustration and "Browse products" CTA
+- Built order summary sidebar with items breakdown and totals
+- Implemented better number handling in quantity controls
+- Added line-item total calculations with strikethrough original price display
+- Created separate handlers: `handleDecrement`, `handleIncrement`, `handleQuantityInput`
+- Added cart header with clear cart button
+- Implemented "Continue shopping" and "Proceed to checkout" actions
+
+### QUICKSTART.md
+
+- **Deleted**: Removed quick start guide file from repository
+
 ## Commits on 19 Nov 2025
 
 ### AuthHandler.js (Back-End)

@@ -2,10 +2,30 @@ import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./nav.css";
 import { CartContext } from "../context/CartContext";
+import addressService from "../services/addressService";
+
+const resolveUserId = (currentUser) => {
+  if (!currentUser || currentUser.isGuest) return null;
+  const raw =
+    currentUser._id ||
+    currentUser.id ||
+    currentUser.userId ||
+    currentUser.user_id ||
+    null;
+  if (raw == null) return null;
+  const normalized = String(raw).trim();
+  if (!normalized || normalized.toLowerCase() === "guest") {
+    return null;
+  }
+  return normalized;
+};
 
 const NavBar = ({ user, onLogout }) => {
   const { cartCount } = useContext(CartContext);
   const navigate = useNavigate();
+  const resolvedUserId = resolveUserId(user);
+  const isLoggedIn = Boolean(resolvedUserId);
+  const isGuest = Boolean(user?.isGuest);
 
   const API_BASE = useMemo(
     () => import.meta.env.VITE_API_URL || "http://localhost:5001",
@@ -20,18 +40,41 @@ const NavBar = ({ user, onLogout }) => {
     }).format(Number(value));
 
   const DELIVERY_STORAGE_KEY = "cartify_delivery_location";
-  const defaultLocation = { city: "Chennai", pincode: "600001" };
+  const defaultLocation = {
+    city: "Chennai",
+    pincode: "600001",
+  };
+
+  const deriveLocationFromAddressEntry = (address) => {
+    if (!address) return null;
+    const city = address.city || address.town || address.district || "";
+    const pincode =
+      address.pincode || address.postalCode || address.zipcode || "";
+    const addressLine1 =
+      address.addressLine1 || address.street || address.label || "";
+
+    if (!addressLine1 && !city && !pincode) return null;
+
+    return {
+      city: city || "",
+      pincode: pincode ? String(pincode) : "",
+    };
+  };
 
   const deriveLocationFromUser = (currentUser) => {
-    if (!currentUser) return null;
-    const fromAddress = currentUser.address || {};
+    if (!currentUser || currentUser.isGuest) return null;
+    const fromAddress = currentUser.address || currentUser.currentAddress || {};
     const city = fromAddress.city || currentUser.city;
     const pincode =
       fromAddress.pincode || fromAddress.postalCode || currentUser.pincode;
-    if (city && pincode) return { city, pincode: String(pincode) };
+    if (city && pincode) {
+      return {
+        city,
+        pincode: String(pincode),
+      };
+    }
     return null;
   };
-
   const [location, setLocation] = useState(() => {
     const fromUser = deriveLocationFromUser(user);
     if (fromUser) return fromUser;
@@ -53,8 +96,50 @@ const NavBar = ({ user, onLogout }) => {
     const fromUser = deriveLocationFromUser(user);
     if (fromUser) {
       setLocation(fromUser);
+    } else if (!user || isGuest) {
+      setLocation(defaultLocation);
     }
-  }, [user]);
+  }, [user, isGuest]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const userId = resolvedUserId;
+
+    const isValidObjectId =
+      typeof userId === "string" && /^[a-f\d]{24}$/i.test(userId);
+    if (!isValidObjectId) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadCurrentAddress = async () => {
+      try {
+        const response = await addressService.list(userId);
+        if (!response?.success) return;
+        const addresses = Array.isArray(response.data) ? response.data : [];
+        if (!addresses.length) return;
+
+        const currentAddress =
+          addresses.find((addr) => addr.isCurrentAddress) ||
+          addresses.find((addr) => addr.isDefaultShipping) ||
+          addresses[0];
+
+        const resolved = deriveLocationFromAddressEntry(currentAddress);
+        if (resolved && !cancelled) {
+          setLocation(resolved);
+        }
+      } catch (error) {
+        console.warn("Failed to load delivery location", error);
+      }
+    };
+
+    loadCurrentAddress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedUserId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -137,6 +222,10 @@ const NavBar = ({ user, onLogout }) => {
     isFocused &&
     (searchTerm.trim().length >= 3 || searchLoading || searchError);
 
+  const deliveryLabel = [location.city, location.pincode]
+    .filter((part) => typeof part === "string" && part.trim().length)
+    .join(" · ");
+
   useEffect(() => {
     if (!profileOpen) return undefined;
 
@@ -163,6 +252,24 @@ const NavBar = ({ user, onLogout }) => {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [profileOpen]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setProfileOpen(false);
+    }
+  }, [isLoggedIn]);
+
+  const handleProfileToggle = () => {
+    if (!isLoggedIn) {
+      navigate("/", { replace: false });
+      return;
+    }
+    setProfileOpen((open) => !open);
+  };
+
+  const handleLoginClick = () => {
+    navigate("/", { replace: false });
+  };
 
   return (
     <nav className="site-nav">
@@ -225,9 +332,7 @@ const NavBar = ({ user, onLogout }) => {
             </svg>
           </span>
           <span className="delivery-label">Delivery to</span>
-          <span className="delivery-location">
-            {location.city}, {location.pincode}
-          </span>
+          <span className="delivery-location">{deliveryLabel}</span>
         </div>
       </div>
       <div className="nav-center">
@@ -300,17 +405,19 @@ const NavBar = ({ user, onLogout }) => {
           <button
             type="button"
             className="profile-toggle"
-            onClick={() => setProfileOpen((open) => !open)}
+            onClick={handleProfileToggle}
             aria-haspopup="menu"
-            aria-expanded={profileOpen}
+            aria-expanded={isLoggedIn ? profileOpen : false}
           >
             Profile
             <span
-              className={`profile-caret${profileOpen ? " open" : ""}`}
+              className={`profile-caret${
+                isLoggedIn && profileOpen ? " open" : ""
+              }`}
               aria-hidden="true"
             />
           </button>
-          {profileOpen && (
+          {isLoggedIn && profileOpen && (
             <div className="profile-menu" role="menu">
               <Link
                 to="/account"
@@ -342,14 +449,14 @@ const NavBar = ({ user, onLogout }) => {
         <Link to="/cart" className="nav-link">
           Cart{cartCount ? ` (${cartCount})` : ""}
         </Link>
-        {user ? (
+        {isLoggedIn ? (
           <button className="nav-logout" onClick={onLogout}>
             Logout
           </button>
         ) : (
-          <Link to="/" className="nav-link">
+          <button type="button" className="nav-link" onClick={handleLoginClick}>
             Login
-          </Link>
+          </button>
         )}
       </div>
     </nav>
