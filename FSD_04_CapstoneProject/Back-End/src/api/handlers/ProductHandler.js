@@ -1,4 +1,7 @@
 const Product = require("../../domain/entities/Product");
+const ProductDetailRepository = require("../../domain/repositories/ProductDetailRepository");
+const ProductDescriptionRepository = require("../../domain/repositories/ProductDescriptionRepository");
+const ProductReviewRepository = require("../../domain/repositories/ProductReviewRepository");
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -34,9 +37,30 @@ const listProducts = async (req, res, next) => {
       .limit(limit)
       .lean();
 
+    let augmentedProducts = products;
+    if (products.length) {
+      try {
+        const summaries = await ProductReviewRepository.getSummariesForProducts(
+          products.map((product) => product._id)
+        );
+        augmentedProducts = products.map((product) => {
+          const summary = summaries[product._id.toString()];
+          return summary
+            ? {
+                ...product,
+                averageRating: summary.averageRating,
+                reviewCount: summary.totalReviews,
+              }
+            : { ...product, averageRating: 0, reviewCount: 0 };
+        });
+      } catch (summaryError) {
+        console.warn("Failed to load review summaries", summaryError);
+      }
+    }
+
     res.json({
       success: true,
-      data: products,
+      data: augmentedProducts,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (err) {
@@ -52,7 +76,55 @@ const getProductById = async (req, res, next) => {
       return res
         .status(404)
         .json({ success: false, message: "Product not found" });
-    res.json({ success: true, data: product });
+
+    let detail = null;
+    let description = null;
+    let reviewOverview = null;
+    try {
+      detail = await ProductDetailRepository.getByProductId(product._id);
+    } catch (detailError) {
+      console.warn(
+        "Failed to load product details for product",
+        product._id,
+        detailError
+      );
+    }
+
+    try {
+      description =
+        (await ProductDescriptionRepository.getByProductId(product._id)) ||
+        null;
+    } catch (descriptionError) {
+      console.warn(
+        "Failed to load product description for product",
+        product._id,
+        descriptionError
+      );
+    }
+
+    try {
+      reviewOverview = await ProductReviewRepository.getOverview(product._id);
+    } catch (reviewError) {
+      console.warn(
+        "Failed to load product reviews for product",
+        product._id,
+        reviewError
+      );
+    }
+
+    let payload = { ...product };
+    if (detail) {
+      payload.productDetails = detail;
+    }
+    if (description) {
+      payload.productDescription = description;
+    }
+    if (reviewOverview) {
+      payload.reviewSummary = reviewOverview.summary;
+      payload.recentReviews = reviewOverview.recentReviews;
+    }
+
+    res.json({ success: true, data: payload });
   } catch (err) {
     next(err);
   }
@@ -83,4 +155,51 @@ const searchProducts = async (req, res, next) => {
   }
 };
 
-module.exports = { listProducts, getProductById, searchProducts };
+const createProductReview = async (req, res, next) => {
+  try {
+    const productId = req.params.id;
+    const product = await Product.findById(productId, { _id: 1 }).lean();
+    if (!product) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+    }
+
+    const rawRating = Number(req.body.rating);
+    const clampedRating = Math.min(5, Math.max(1, Math.round(rawRating || 5)));
+    const comment = (req.body.comment || "").trim();
+    const displayName = (req.body.displayName || "Cartify Shopper").trim();
+
+    if (!comment.length) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Review text is required" });
+    }
+
+    const review = await ProductReviewRepository.createReview(product._id, {
+      rating: clampedRating,
+      comment,
+      displayName: displayName || "Cartify Shopper",
+    });
+
+    const overview = await ProductReviewRepository.getOverview(product._id);
+
+    res.status(201).json({
+      success: true,
+      data: review,
+      meta: {
+        reviewSummary: overview.summary,
+        recentReviews: overview.recentReviews,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  listProducts,
+  getProductById,
+  searchProducts,
+  createProductReview,
+};

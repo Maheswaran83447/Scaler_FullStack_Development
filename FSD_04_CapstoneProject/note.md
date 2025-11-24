@@ -1,5 +1,139 @@
 # Analyse Changes
 
+## Commit on 24 Nov 2025
+
+### OrderHandler.js (Back-End)
+
+- **New File**: Complete order handler implementation for authenticated users
+- Added `listOrders()` method: Fetches all orders for authenticated user via `req.user.userId`
+- Added `createOrder()` method: Creates new orders with full validation and returns 201 status on success
+- Implemented authentication requirement checks (returns 401 if not authenticated)
+- Error handling with 400 for ValidationError, 500 for other errors
+- Integrated with OrderService for business logic
+
+### PaymentHandler.js (Back-End)
+
+- **New File**: Complete Razorpay payment integration handler
+- Added `createOrder()` method:
+  - Converts payment amount from rupees to paise (multiply by 100)
+  - Validates amount is positive and finite number
+  - Enriches order notes with userId (or "guest" for unauthenticated)
+  - Returns orderId, amount, currency, and Razorpay public key
+- Added `verifyPayment()` method:
+  - Verifies Razorpay payment signature using HMAC
+  - Requires orderId, paymentId, and signature from request
+  - Returns 400 if signature validation fails
+- All routes protected with authentication middleware
+
+### UserAddressHandler.js (Back-End)
+
+- **New File**: Complete address management handler (160 lines)
+- Added `listUserAddresses()`: Fetches all addresses for a user with validation
+- Added `createUserAddress()`: Creates new address with comprehensive sanitization
+  - Validates required fields (addressLine1, city, state, pincode)
+  - Normalizes boolean flags for default/current address settings
+  - Sanitizes address tags to allowed values: "home", "work", "other"
+  - Verifies user exists before address creation
+- Added `deleteUserAddress()`: Removes address with ownership validation
+- Implemented helper functions:
+  - `normaliseBoolean()`: Converts various string/number formats to boolean
+  - `sanitizeAddressPayload()`: Cleans and validates all address data
+  - `validateUserId()`: Checks MongoDB ObjectId validity
+- Returns 404 if user not found, 400 for invalid data
+
+### addressRoutes.js (Back-End)
+
+- **New File**: Express router for address API endpoints
+- Route: `GET /:userId` → Lists all addresses for user
+- Route: `POST /` → Creates new address
+- Route: `DELETE /:addressId` → Deletes specific address
+
+### orderRoutes.js (Back-End)
+
+- **New File**: Express router for order API endpoints
+- Route: `GET /` → Lists orders (requires auth middleware)
+- Route: `POST /` → Creates new order (requires auth middleware)
+- Both routes protected with authentication
+
+### paymentRoutes.js (Back-End)
+
+- **New File**: Express router for Razorpay payment endpoints
+- Route: `POST /order` → Creates Razorpay order (requires auth middleware)
+- Route: `POST /verify` → Verifies payment signature (requires auth middleware)
+- All payment operations require authentication
+
+### ProductDescription.js (Back-End)
+
+- **New Entity**: MongoDB schema for product long-form descriptions
+- Fields: `product` (ObjectId ref), `descriptionHtml` (string), `wordCount` (number)
+- Unique index on product field (one description per product)
+- Timestamps enabled for tracking creation/updates
+
+### ProductDetail.js (Back-End)
+
+- **New Entity**: MongoDB schema for product technical specifications
+- Fields: `manufacturer`, `countryOfOrigin`, `itemModelNumber`, `productDimensions`, `asin`, `netQuantity`
+- Unique index on product field
+- All fields optional with trim and specific formatting (ASIN uppercase)
+- Timestamps enabled
+
+### ProductReview.js (Back-End)
+
+- **New Entity**: MongoDB schema for customer product reviews
+- Fields: `product` (ObjectId ref), `rating` (1-5), `comment` (3-2000 chars), `displayName`
+- Compound index on product and createdAt for efficient querying
+- Default displayName: "Cartify Shopper"
+- Rating validation: min 1, max 5
+- Comment validation: min 3, max 2000 characters
+
+### ProductHandler.js (Back-End)
+
+- **Enhanced**: Added new repository imports for ProductDetail, ProductDescription, ProductReview
+- **Enhanced `listProducts()` method**:
+  - Now fetches review summaries for all products in batch
+  - Augments each product with `averageRating` and `reviewCount` fields
+  - Falls back to rating: 0, count: 0 if review fetch fails
+  - Non-critical failures logged with console.warn
+- **Enhanced `getProductById()` method**:
+  - Now fetches product details, description, and review overview
+  - Combines all data into enriched single response payload
+  - Adds `productDetails`, `productDescription`, `reviewSummary`, `recentReviews` fields
+  - Independent error handling for each data source (product still returns if extras fail)
+- **New `createProductReview()` method**:
+  - Validates product exists before accepting review
+  - Clamps rating value between 1-5 automatically
+  - Validates comment is not empty
+  - Creates review and returns updated overview with all reviews
+  - Returns 201 status with review data and meta information
+
+### productRoutes.js (Back-End)
+
+- Added new route: `POST /:id/reviews` → Creates product review (calls ProductHandler.createProductReview)
+
+### Order.js (Back-End)
+
+- **Enhanced Entity**: Expanded shippingAddress schema with complete address structure
+- **New fields added**:
+  - `addressId`: Reference to saved address
+  - `tag`: Address type (home/work/other)
+  - `addressLine1`, `addressLine2`: Street address lines
+  - `landmark`: Location landmark
+  - `city`, `state`, `pincode`: Location details
+  - `isDefaultShipping`, `isDefaultBilling`, `isCurrentAddress`: Boolean flags
+- Retained legacy fields (`label`, `line`) for backward compatibility
+
+### server.js (Back-End)
+
+- **Enhanced**: Added 5 new API route mounts
+- New routes mounted:
+  - `/api/auth` → authRoutes (authentication endpoints)
+  - `/api/orders` → orderRoutes (order management)
+  - `/api/payments` → paymentRoutes (Razorpay integration)
+  - `/api/user-addresses` → addressRoutes (address CRUD)
+  - `/api/wishlist` → wishlistRoutes (wishlist management)
+- Previously only had `/api/products` endpoint
+- Complete API now spans 6 major feature areas
+
 ## Commits on 21 Nov 2025
 
 ### UserAddressRepository.js (Back-End)

@@ -15,7 +15,12 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "API is running", timestamp: new Date() });
 });
+app.use("/api/auth", require("./api/routes/authRoutes"));
 app.use("/api/products", require("./api/routes/productRoutes"));
+app.use("/api/orders", require("./api/routes/orderRoutes"));
+app.use("/api/payments", require("./api/routes/paymentRoutes"));
+app.use("/api/user-addresses", require("./api/routes/addressRoutes"));
+app.use("/api/wishlist", require("./api/routes/wishlistRoutes"));
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
