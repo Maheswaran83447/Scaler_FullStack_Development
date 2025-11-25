@@ -1,6 +1,172 @@
 # Analyse Changes
 
-## Commit on 24 Nov 2025
+## Commits on 25 Nov 2025
+
+### Cart.js (Back-End)
+
+- **New Entity**: MongoDB schema for server-side cart persistence
+- Fields: `userId` (ObjectId, unique, indexed), `items[]` (productId, quantity, addedAt), `updatedAt`
+- Cart item schema: productId (ref to Product), quantity (min: 1), addedAt timestamp
+- Timestamps enabled for tracking creation/updates
+- Pre-save hook to update `updatedAt` field
+- Virtual field: `itemCount` - calculates total quantity across all cart items
+- Instance methods:
+  - `addItem(productId, quantity)`: Adds new item or increments existing item quantity
+  - `updateItemQuantity(productId, quantity)`: Updates quantity or removes if ≤ 0
+  - `removeItem(productId)`: Removes specific item from cart
+  - `clearCart()`: Empties all items from cart
+
+### CartRepository.js (Back-End)
+
+- **New Repository**: Data access layer for cart operations (170 lines)
+- Added `findByUserId(userId)`: Fetches cart with populated product details
+- Added `getOrCreateCart(userId)`: Gets existing cart or creates new empty cart
+- Added `addItem(userId, productId, quantity)`: Adds item to cart or increments quantity
+- Added `updateItemQuantity(userId, productId, quantity)`: Updates or removes item based on quantity
+- Added `removeItem(userId, productId)`: Removes specific product from cart
+- Added `clearCart(userId)`: Empties cart while preserving cart document
+- Added `syncCart(userId, items[])`: Merges localStorage cart with server cart
+  - Takes maximum quantity when same item exists in both
+  - Adds items from localStorage that don't exist on server
+  - Used for cross-device cart synchronization
+- Added `deleteCart(userId)`: Permanently deletes cart document
+- All methods include comprehensive error handling with descriptive messages
+
+### CartHandler.js (Back-End)
+
+- **New Handler**: API request handlers for cart operations
+- Added `handleGetCart()`: Returns user's cart with all items
+  - Returns empty cart structure if no cart exists
+  - Requires authentication (401 if not authenticated)
+- Added `handleAddItem()`: Adds item to cart
+  - Validates productId and quantity (min: 1)
+  - Returns 400 for invalid input
+- Added `handleUpdateItem()`: Updates item quantity
+  - Removes item if quantity ≤ 0
+  - Returns appropriate message based on action
+- Added `handleRemoveItem()`: Removes item from cart
+  - Takes productId from URL params
+  - Validates authentication and productId
+- Added `handleClearCart()`: Empties entire cart
+  - Returns empty cart structure
+- Added `handleSyncCart()`: Syncs localStorage cart with server
+  - Validates items array format
+  - Merges local and server carts
+  - Critical for cross-device cart persistence
+- All handlers return structured response: `{success, message, cart}`
+- Comprehensive error logging for debugging
+
+### cartRoutes.js (Back-End)
+
+- **New Routes**: RESTful API endpoints for cart management
+- All routes require authentication via `authMiddleware`
+- Route: `GET /api/cart` → Gets user's cart
+- Route: `POST /api/cart/add` → Adds item to cart
+  - Body: `{productId: String, quantity: Number}`
+- Route: `PUT /api/cart/update` → Updates item quantity
+  - Body: `{productId: String, quantity: Number}`
+- Route: `DELETE /api/cart/remove/:productId` → Removes item
+- Route: `DELETE /api/cart/clear` → Clears entire cart
+- Route: `POST /api/cart/sync` → Syncs localStorage with server
+  - Body: `{items: Array<{productId, quantity}>}`
+- All routes documented with JSDoc comments
+
+### authMiddleware.js (Back-End)
+
+- **Enhanced**: Added `req.userId` assignment for cart operations
+- Now sets both `req.user` (decoded token) and `req.userId` (extracted user ID)
+- Supports both token formats: `decoded.userId` and `decoded.id`
+- Ensures consistent userId access across all protected routes
+
+### server.js (Back-End)
+
+- **Enhanced**: Registered new cart routes
+- Added: `app.use("/api/cart", require("./api/routes/cartRoutes"))`
+- Cart API now accessible at `/api/cart/*` endpoints
+
+### cartService.js (Front-End)
+
+- **New Service**: Frontend API client for cart operations
+- Uses `apiClient` for authenticated requests
+- Added `getCart()`: Fetches user's cart from server
+- Added `addItemToCart(productId, quantity)`: Adds item to server cart
+- Added `updateCartItem(productId, quantity)`: Updates item quantity on server
+- Added `removeCartItem(productId)`: Removes item from server cart
+- Added `clearCart()`: Clears entire cart on server
+- Added `syncCart(items[])`: Syncs localStorage cart to server
+- All methods include error logging
+- Exports both named functions and default service object
+
+### CartContext.jsx (Front-End)
+
+- **Major Enhancement**: Added server-side cart synchronization (185 lines total)
+- **New imports**: cartService, authService, useCallback
+- **New state**: `isSyncing` - tracks server sync operations
+- **New helper**: `isLoggedIn()` - checks if user is authenticated (not guest)
+- **On mount effect**: Fetches and merges server cart with localStorage
+  - Converts server cart format to local cart format
+  - Merges localStorage items with server items
+  - Syncs localStorage items to server if needed
+  - Gracefully handles errors (keeps using localStorage)
+- **Enhanced `addToCart`**: Now async, syncs to server for logged-in users
+  - Optimistic UI update (immediate local state change)
+  - Background server sync (doesn't block user experience)
+  - Error logged but doesn't interrupt flow
+- **Enhanced `removeFromCart`**: Now async, syncs to server
+  - Immediate local removal
+  - Background server sync
+- **Enhanced `updateQuantity`**: Now async, syncs to server
+  - Local update first
+  - Server sync in background
+- **Enhanced `clearCart`**: Now async, syncs to server
+  - Immediate local clear
+  - Background server sync
+- **Strategy**: Local-first for performance, server for cross-device persistence
+- **New export**: `isSyncing` state exposed to consumers
+
+### PlaceOrder.jsx (Front-End)
+
+- **Major Enhancement**: Guest checkout implementation with auto-registration
+- **New imports**: authService for guest account creation
+- **New state**: `guestDetails` - form data for guest users (10 fields)
+  - firstName, lastName, email, phoneNumber
+  - addressLine1, addressLine2, landmark
+  - city, state, pincode
+- **New state**: `isCreatingGuestAccount` - tracks account creation process
+- **New validation**: `isGuestFormValid` - validates required guest fields
+  - Checks: firstName, email, phoneNumber, addressLine1, city, state, pincode
+  - All must be non-empty after trim
+- **Enhanced `isPayDisabled`**: Now includes guest form validation
+  - Disabled if guest and form incomplete
+- **New handler**: `handleGuestDetailsChange(field, value)` - updates guest form
+- **Enhanced `handlePay()`**: Complete guest checkout flow
+  - **Guest checkout logic**:
+    1. Validates guest details
+    2. Generates temporary password for guest user
+    3. Creates user account via authService.register()
+    4. Extracts new userId from registration response
+    5. Uses guest-provided address directly (no database save)
+    6. Marks address as default/current/shipping/billing
+    7. Shows success toast
+    8. Falls back to local cart on registration failure
+  - **Registered user logic**: Uses selected saved address
+  - Creates order payload with appropriate shipping address
+  - Prefills Razorpay with guest email/phone or user details
+- **Enhanced UI**: Conditional rendering based on `isGuest`
+  - **Guest view**: Shows comprehensive guest details form
+    - 2-column grid layout
+    - 10 input fields with labels and required markers
+    - Info note about account creation
+  - **Registered user view**: Shows saved addresses with add/edit options
+  - Changed payment button text from "Sign in to pay" to just "Pay {amount}"
+  - Added info banner for guests explaining checkout process
+- **New styles**: Added guest form styling
+  - `guestFormContainer`, `guestFormGrid`
+  - `formGroup`, `formLabel`, `formInput`
+- **Improved UX**: Guest users no longer forced to sign in before checkout
+- **Security**: Auto-generated passwords can be reset via email later
+
+## Commits on 24 Nov 2025
 
 ### OrderHandler.js (Back-End)
 

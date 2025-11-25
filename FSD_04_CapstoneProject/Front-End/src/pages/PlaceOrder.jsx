@@ -12,6 +12,7 @@ import { ToastContext } from "../context/ToastContext";
 import orderService from "../services/orderService";
 import paymentService from "../services/paymentService";
 import addressService from "../services/addressService";
+import { authService } from "../services/authService";
 
 const formatINR = (value) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
@@ -99,7 +100,40 @@ const PlaceOrder = ({ user, onLogout }) => {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const userId = resolveUserId(user);
-  const isPayDisabled = isPlacingOrder || !cart.length || total <= 0;
+  const isGuest = !userId || user?.isGuest;
+
+  // Guest checkout form state
+  const [guestDetails, setGuestDetails] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    addressLine1: "",
+    addressLine2: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+
+  const [isCreatingGuestAccount, setIsCreatingGuestAccount] = useState(false);
+
+  // Validation for guest checkout
+  const isGuestFormValid = isGuest
+    ? guestDetails.firstName.trim() &&
+      guestDetails.email.trim() &&
+      guestDetails.phoneNumber.trim() &&
+      guestDetails.addressLine1.trim() &&
+      guestDetails.city.trim() &&
+      guestDetails.state.trim() &&
+      guestDetails.pincode.trim()
+    : true;
+
+  const isPayDisabled =
+    isPlacingOrder ||
+    !cart.length ||
+    total <= 0 ||
+    (isGuest && !isGuestFormValid);
 
   const handleToggleAdd = () => {
     setShowAdd((prev) => {
@@ -113,6 +147,13 @@ const PlaceOrder = ({ user, onLogout }) => {
 
   const handleNewAddressChange = (field, value) => {
     setNewAddress((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleGuestDetailsChange = (field, value) => {
+    setGuestDetails((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -276,26 +317,80 @@ const PlaceOrder = ({ user, onLogout }) => {
       return;
     }
 
-    const address = addresses.find(
-      (entry) => resolveAddressId(entry) === selectedAddress
-    );
+    // Handle guest checkout - create user account first
+    let effectiveUserId = userId;
+    let shippingAddressData = null;
 
-    if (!address) {
-      showToast("Select a delivery address before paying", {
-        type: "warning",
-      });
-      return;
-    }
+    if (isGuest) {
+      // Validate guest details
+      if (!isGuestFormValid) {
+        showToast("Please fill in all required fields", { type: "warning" });
+        return;
+      }
 
-    const orderPayload = {
-      items: cart.map((item) => ({
-        productId: item.id || item._id || null,
-        name: item.title || item.name || "Cartify item",
-        price: item.price,
-        quantity: item.quantity || 1,
-      })),
-      paymentMethod,
-      shippingAddress: {
+      setIsCreatingGuestAccount(true);
+      try {
+        // Generate a password for guest user (they can reset it later)
+        const tempPassword = `Guest${Date.now()}!`;
+
+        // Create user account
+        const registerResponse = await authService.register({
+          firstName: guestDetails.firstName.trim(),
+          lastName: guestDetails.lastName.trim(),
+          email: guestDetails.email.trim(),
+          username: guestDetails.email.trim().split("@")[0] + Date.now(),
+          password: tempPassword,
+          phoneNumber: guestDetails.phoneNumber.trim(),
+        });
+
+        if (!registerResponse?.success || !registerResponse?.userProfile) {
+          throw new Error(
+            registerResponse?.message || "Unable to create account"
+          );
+        }
+
+        effectiveUserId =
+          registerResponse.userProfile._id || registerResponse.userProfile.id;
+
+        // Use guest provided address directly
+        shippingAddressData = {
+          label: `${guestDetails.firstName}'s Address`,
+          tag: "home",
+          addressLine1: guestDetails.addressLine1.trim(),
+          addressLine2: guestDetails.addressLine2.trim(),
+          landmark: guestDetails.landmark.trim(),
+          city: guestDetails.city.trim(),
+          state: guestDetails.state.trim(),
+          pincode: guestDetails.pincode.trim(),
+          isDefaultShipping: true,
+          isDefaultBilling: true,
+          isCurrentAddress: true,
+        };
+
+        showToast("Account created successfully", { type: "success" });
+      } catch (error) {
+        showToast(error.message || "Unable to create account", {
+          type: "error",
+        });
+        setIsCreatingGuestAccount(false);
+        return;
+      } finally {
+        setIsCreatingGuestAccount(false);
+      }
+    } else {
+      // Registered user - validate address selection
+      const address = addresses.find(
+        (entry) => resolveAddressId(entry) === selectedAddress
+      );
+
+      if (!address) {
+        showToast("Select a delivery address before paying", {
+          type: "warning",
+        });
+        return;
+      }
+
+      shippingAddressData = {
         id: address._id || address.id,
         label: address.label,
         tag: address.tag,
@@ -308,7 +403,18 @@ const PlaceOrder = ({ user, onLogout }) => {
         isDefaultShipping: address.isDefaultShipping,
         isDefaultBilling: address.isDefaultBilling,
         isCurrentAddress: address.isCurrentAddress,
-      },
+      };
+    }
+
+    const orderPayload = {
+      items: cart.map((item) => ({
+        productId: item.id || item._id || null,
+        name: item.title || item.name || "Cartify item",
+        price: item.price,
+        quantity: item.quantity || 1,
+      })),
+      paymentMethod,
+      shippingAddress: shippingAddressData,
       totalAmount: total,
     };
 
@@ -345,11 +451,15 @@ const PlaceOrder = ({ user, onLogout }) => {
       }
 
       const shippingSummary = [
-        address.addressLine1,
-        address.addressLine2,
-        address.landmark,
-        [address.city, address.state].filter(Boolean).join(", ") || null,
-        address.pincode ? `PIN ${address.pincode}` : null,
+        shippingAddressData.addressLine1,
+        shippingAddressData.addressLine2,
+        shippingAddressData.landmark,
+        [shippingAddressData.city, shippingAddressData.state]
+          .filter(Boolean)
+          .join(", ") || null,
+        shippingAddressData.pincode
+          ? `PIN ${shippingAddressData.pincode}`
+          : null,
       ]
         .filter(Boolean)
         .join(" · ");
@@ -362,11 +472,13 @@ const PlaceOrder = ({ user, onLogout }) => {
         description: "Secure payment",
         order_id: paymentInit.orderId,
         prefill: {
-          email: user?.email || "shopper@example.com",
-          contact: user?.phone || "",
+          email: isGuest
+            ? guestDetails.email
+            : user?.email || "shopper@example.com",
+          contact: isGuest ? guestDetails.phoneNumber : user?.phone || "",
         },
         notes: {
-          shippingAddress: `${address.label}${
+          shippingAddress: `${shippingAddressData.label}${
             shippingSummary ? `: ${shippingSummary}` : ""
           }`,
         },
@@ -569,6 +681,22 @@ const PlaceOrder = ({ user, onLogout }) => {
               })}
 
               <div style={styles.paymentFooter}>
+                {isGuest && (
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      backgroundColor: "rgba(59, 130, 246, 0.1)",
+                      border: "1px solid rgba(59, 130, 246, 0.3)",
+                      borderRadius: "8px",
+                      marginBottom: "16px",
+                      fontSize: "0.9rem",
+                      color: "#1e40af",
+                      textAlign: "center",
+                    }}
+                  >
+                    ℹ️ Please sign in to proceed with checkout
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handlePay}
@@ -591,242 +719,425 @@ const PlaceOrder = ({ user, onLogout }) => {
 
           <aside style={styles.card} aria-label="Delivery address">
             <div style={styles.deliveryHeader}>
-              <h3 style={styles.deliveryTitle}>Delivery address</h3>
-              {addresses.length > 0 && (
+              <h3 style={styles.deliveryTitle}>
+                {isGuest ? "Your details" : "Delivery address"}
+              </h3>
+              {!isGuest && addresses.length > 0 && (
                 <span style={styles.badgePill}>Saved {addresses.length}</span>
               )}
             </div>
 
-            <div style={styles.addressList}>
-              {addressesLoading && (
-                <p style={styles.orderMeta}>Loading saved addresses…</p>
-              )}
-
-              {addressesError && (
-                <p style={{ color: "#dc2626", fontSize: "0.9rem" }}>
-                  {addressesError}
+            {isGuest ? (
+              <div style={styles.guestFormContainer}>
+                <p style={{ ...styles.orderMeta, marginBottom: "16px" }}>
+                  Enter your details to complete checkout
                 </p>
-              )}
 
-              {!addressesLoading &&
-                !addressesError &&
-                addresses.length === 0 && (
-                  <p style={styles.orderMeta}>
-                    {userId
-                      ? "No saved addresses yet. Add one to continue."
-                      : "Sign in to manage your delivery addresses."}
+                <div style={styles.guestFormGrid}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      First Name <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guestDetails.firstName}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("firstName", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="Enter first name"
+                      required
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>Last Name</label>
+                    <input
+                      type="text"
+                      value={guestDetails.lastName}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("lastName", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Email <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={guestDetails.email}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("email", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="your.email@example.com"
+                      required
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Phone Number <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={guestDetails.phoneNumber}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("phoneNumber", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="+91 9876543210"
+                      required
+                    />
+                  </div>
+
+                  <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
+                    <label style={styles.formLabel}>
+                      Address Line 1 <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guestDetails.addressLine1}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("addressLine1", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="House no., Building name"
+                      required
+                    />
+                  </div>
+
+                  <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
+                    <label style={styles.formLabel}>Address Line 2</label>
+                    <input
+                      type="text"
+                      value={guestDetails.addressLine2}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("addressLine2", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="Street, Area"
+                    />
+                  </div>
+
+                  <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
+                    <label style={styles.formLabel}>Landmark</label>
+                    <input
+                      type="text"
+                      value={guestDetails.landmark}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("landmark", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="Near..."
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      City <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guestDetails.city}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("city", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="City"
+                      required
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      State <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guestDetails.state}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("state", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="State"
+                      required
+                    />
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Pincode <span style={{ color: "#dc2626" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guestDetails.pincode}
+                      onChange={(e) =>
+                        handleGuestDetailsChange("pincode", e.target.value)
+                      }
+                      style={styles.formInput}
+                      placeholder="600001"
+                      maxLength="6"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "12px",
+                    backgroundColor: "rgba(59, 130, 246, 0.05)",
+                    border: "1px solid rgba(59, 130, 246, 0.2)",
+                    borderRadius: "8px",
+                    fontSize: "0.85rem",
+                    color: "#475569",
+                  }}
+                >
+                  <strong>Note:</strong> An account will be created for you with
+                  these details. You can set a password later from your email.
+                </div>
+              </div>
+            ) : (
+              <div style={styles.addressList}>
+                {addressesLoading && (
+                  <p style={styles.orderMeta}>Loading saved addresses…</p>
+                )}
+
+                {addressesError && (
+                  <p style={{ color: "#dc2626", fontSize: "0.9rem" }}>
+                    {addressesError}
                   </p>
                 )}
 
-              {addresses.map((address, index) => {
-                const addrId = resolveAddressId(address);
-                const lineTwo = [address.addressLine2, address.landmark]
-                  .filter(Boolean)
-                  .join(", ");
-                const locality = [address.city, address.state]
-                  .filter(Boolean)
-                  .join(", ");
-                const lines = [
-                  address.addressLine1,
-                  lineTwo,
-                  [locality, address.pincode].filter(Boolean).join(" - "),
-                ].filter((line) => line && line.trim().length > 0);
+                {!addressesLoading &&
+                  !addressesError &&
+                  addresses.length === 0 && (
+                    <p style={styles.orderMeta}>
+                      No saved addresses yet. Add one to continue.
+                    </p>
+                  )}
 
-                const badges = [];
-                if (address.tag) {
-                  badges.push(
-                    address.tag.charAt(0).toUpperCase() + address.tag.slice(1)
-                  );
-                }
-                if (address.isCurrentAddress) {
-                  badges.push("Current");
-                } else if (address.isDefaultShipping) {
-                  badges.push("Default shipping");
-                }
-                if (address.isDefaultBilling) {
-                  badges.push("Default billing");
-                }
+                {addresses.map((address, index) => {
+                  const addrId = resolveAddressId(address);
+                  const lineTwo = [address.addressLine2, address.landmark]
+                    .filter(Boolean)
+                    .join(", ");
+                  const locality = [address.city, address.state]
+                    .filter(Boolean)
+                    .join(", ");
+                  const lines = [
+                    address.addressLine1,
+                    lineTwo,
+                    [locality, address.pincode].filter(Boolean).join(" - "),
+                  ].filter((line) => line && line.trim().length > 0);
 
-                return (
-                  <label
-                    key={addrId || `addr-${index}`}
-                    style={styles.addressOption(addrId === selectedAddress)}
-                  >
-                    <input
-                      type="radio"
-                      name="address"
-                      checked={selectedAddress === addrId}
-                      onChange={() => setSelectedAddress(addrId)}
-                      style={{ marginTop: "6px" }}
-                    />
-                    <div style={styles.addressBody}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "6px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, color: "#1f2937" }}>
-                          {address.label || "Saved address"}
-                        </span>
-                        {badges.map((badge) => (
-                          <span key={badge} style={styles.badgePill}>
-                            {badge}
+                  const badges = [];
+                  if (address.tag) {
+                    badges.push(
+                      address.tag.charAt(0).toUpperCase() + address.tag.slice(1)
+                    );
+                  }
+                  if (address.isCurrentAddress) {
+                    badges.push("Current");
+                  } else if (address.isDefaultShipping) {
+                    badges.push("Default shipping");
+                  }
+                  if (address.isDefaultBilling) {
+                    badges.push("Default billing");
+                  }
+
+                  return (
+                    <label
+                      key={addrId || `addr-${index}`}
+                      style={styles.addressOption(addrId === selectedAddress)}
+                    >
+                      <input
+                        type="radio"
+                        name="address"
+                        checked={selectedAddress === addrId}
+                        onChange={() => setSelectedAddress(addrId)}
+                        style={{ marginTop: "6px" }}
+                      />
+                      <div style={styles.addressBody}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "6px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: "#1f2937" }}>
+                            {address.label || "Saved address"}
                           </span>
+                          {badges.map((badge) => (
+                            <span key={badge} style={styles.badgePill}>
+                              {badge}
+                            </span>
+                          ))}
+                        </div>
+                        {lines.map((line, idx) => (
+                          <span key={idx}>{line}</span>
                         ))}
                       </div>
-                      {lines.map((line, idx) => (
-                        <span key={idx}>{line}</span>
+                    </label>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={handleToggleAdd}
+                  style={styles.addAddressButton}
+                  disabled={!userId}
+                >
+                  {showAdd ? "Cancel" : "Add new address"}
+                </button>
+
+                {showAdd && (
+                  <div style={styles.addressForm}>
+                    <input
+                      placeholder="Label"
+                      value={newAddress.label}
+                      onChange={(event) =>
+                        handleNewAddressChange("label", event.target.value)
+                      }
+                      style={styles.input}
+                    />
+                    <input
+                      placeholder="Address line 1 *"
+                      value={newAddress.addressLine1}
+                      onChange={(event) =>
+                        handleNewAddressChange(
+                          "addressLine1",
+                          event.target.value
+                        )
+                      }
+                      style={styles.input}
+                    />
+                    <input
+                      placeholder="Address line 2"
+                      value={newAddress.addressLine2}
+                      onChange={(event) =>
+                        handleNewAddressChange(
+                          "addressLine2",
+                          event.target.value
+                        )
+                      }
+                      style={styles.input}
+                    />
+                    <input
+                      placeholder="Landmark"
+                      value={newAddress.landmark}
+                      onChange={(event) =>
+                        handleNewAddressChange("landmark", event.target.value)
+                      }
+                      style={styles.input}
+                    />
+                    <div style={styles.inputGrid}>
+                      <input
+                        placeholder="City *"
+                        value={newAddress.city}
+                        onChange={(event) =>
+                          handleNewAddressChange("city", event.target.value)
+                        }
+                        style={styles.input}
+                      />
+                      <input
+                        placeholder="State *"
+                        value={newAddress.state}
+                        onChange={(event) =>
+                          handleNewAddressChange("state", event.target.value)
+                        }
+                        style={styles.input}
+                      />
+                      <input
+                        placeholder="Pincode *"
+                        value={newAddress.pincode}
+                        onChange={(event) =>
+                          handleNewAddressChange("pincode", event.target.value)
+                        }
+                        style={styles.input}
+                      />
+                    </div>
+
+                    <div style={styles.tagRow}>
+                      {[
+                        { value: "home", label: "Home" },
+                        { value: "work", label: "Work" },
+                        { value: "other", label: "Other" },
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          style={styles.tagOption(
+                            newAddress.tag === option.value
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="address-tag"
+                            checked={newAddress.tag === option.value}
+                            onChange={() =>
+                              handleNewAddressChange("tag", option.value)
+                            }
+                          />
+                          {option.label}
+                        </label>
                       ))}
                     </div>
-                  </label>
-                );
-              })}
 
-              <button
-                type="button"
-                onClick={handleToggleAdd}
-                style={styles.addAddressButton}
-                disabled={!userId}
-              >
-                {showAdd ? "Cancel" : "Add new address"}
-              </button>
-
-              {showAdd && (
-                <div style={styles.addressForm}>
-                  <input
-                    placeholder="Label"
-                    value={newAddress.label}
-                    onChange={(event) =>
-                      handleNewAddressChange("label", event.target.value)
-                    }
-                    style={styles.input}
-                  />
-                  <input
-                    placeholder="Address line 1 *"
-                    value={newAddress.addressLine1}
-                    onChange={(event) =>
-                      handleNewAddressChange("addressLine1", event.target.value)
-                    }
-                    style={styles.input}
-                  />
-                  <input
-                    placeholder="Address line 2"
-                    value={newAddress.addressLine2}
-                    onChange={(event) =>
-                      handleNewAddressChange("addressLine2", event.target.value)
-                    }
-                    style={styles.input}
-                  />
-                  <input
-                    placeholder="Landmark"
-                    value={newAddress.landmark}
-                    onChange={(event) =>
-                      handleNewAddressChange("landmark", event.target.value)
-                    }
-                    style={styles.input}
-                  />
-                  <div style={styles.inputGrid}>
-                    <input
-                      placeholder="City *"
-                      value={newAddress.city}
-                      onChange={(event) =>
-                        handleNewAddressChange("city", event.target.value)
-                      }
-                      style={styles.input}
-                    />
-                    <input
-                      placeholder="State *"
-                      value={newAddress.state}
-                      onChange={(event) =>
-                        handleNewAddressChange("state", event.target.value)
-                      }
-                      style={styles.input}
-                    />
-                    <input
-                      placeholder="Pincode *"
-                      value={newAddress.pincode}
-                      onChange={(event) =>
-                        handleNewAddressChange("pincode", event.target.value)
-                      }
-                      style={styles.input}
-                    />
-                  </div>
-
-                  <div style={styles.tagRow}>
-                    {[
-                      { value: "home", label: "Home" },
-                      { value: "work", label: "Work" },
-                      { value: "other", label: "Other" },
-                    ].map((option) => (
-                      <label
-                        key={option.value}
-                        style={styles.tagOption(
-                          newAddress.tag === option.value
-                        )}
-                      >
+                    <div style={styles.checkboxRow}>
+                      <label>
                         <input
-                          type="radio"
-                          name="address-tag"
-                          checked={newAddress.tag === option.value}
-                          onChange={() =>
-                            handleNewAddressChange("tag", option.value)
+                          type="checkbox"
+                          checked={newAddress.isCurrentAddress}
+                          onChange={(event) =>
+                            handleNewAddressChange(
+                              "isCurrentAddress",
+                              event.target.checked
+                            )
                           }
                         />
-                        {option.label}
+                        <span style={{ marginLeft: "6px" }}>
+                          Set as current delivery address
+                        </span>
                       </label>
-                    ))}
-                  </div>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={newAddress.isDefaultBilling}
+                          onChange={(event) =>
+                            handleNewAddressChange(
+                              "isDefaultBilling",
+                              event.target.checked
+                            )
+                          }
+                        />
+                        <span style={{ marginLeft: "6px" }}>
+                          Mark as default billing address
+                        </span>
+                      </label>
+                    </div>
 
-                  <div style={styles.checkboxRow}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={newAddress.isCurrentAddress}
-                        onChange={(event) =>
-                          handleNewAddressChange(
-                            "isCurrentAddress",
-                            event.target.checked
-                          )
-                        }
-                      />
-                      <span style={{ marginLeft: "6px" }}>
-                        Set as current delivery address
-                      </span>
-                    </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={newAddress.isDefaultBilling}
-                        onChange={(event) =>
-                          handleNewAddressChange(
-                            "isDefaultBilling",
-                            event.target.checked
-                          )
-                        }
-                      />
-                      <span style={{ marginLeft: "6px" }}>
-                        Mark as default billing address
-                      </span>
-                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSaveAddress}
+                      style={{
+                        ...styles.primaryButton,
+                        width: "fit-content",
+                        padding: "10px 18px",
+                      }}
+                      disabled={isSavingAddress}
+                    >
+                      {isSavingAddress ? "Saving…" : "Save address"}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveAddress}
-                    style={{
-                      ...styles.primaryButton,
-                      width: "fit-content",
-                      padding: "10px 18px",
-                    }}
-                    disabled={isSavingAddress}
-                  >
-                    {isSavingAddress ? "Saving…" : "Save address"}
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </aside>
         </div>
       </main>
@@ -1116,6 +1427,35 @@ const styles = {
   paymentFooter: {
     display: "grid",
     gap: "12px",
+  },
+  guestFormContainer: {
+    marginTop: "8px",
+  },
+  guestFormGrid: {
+    display: "grid",
+    gap: "16px",
+    gridTemplateColumns: "repeat(2, 1fr)",
+  },
+  formGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  formLabel: {
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    color: "#334155",
+  },
+  formInput: {
+    width: "100%",
+    borderRadius: "10px",
+    border: "1px solid #dbeafe",
+    padding: "10px 14px",
+    fontSize: "0.95rem",
+    color: "#0f172a",
+    background: "#ffffff",
+    transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+    outline: "none",
   },
 };
 
