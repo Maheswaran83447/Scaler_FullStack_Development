@@ -29,7 +29,7 @@ jobs:
       - name: Zip artifact for deployment
         run: |
           cd FSD_04_CapstoneProject/Back-End
-          zip -r ../../backend-release.zip . -x "*.git*" "node_modules/*" "*.env*"
+          zip -r ../../backend-release.zip . -x "*.git*" "*.env*" "coverage/*" "__tests__/*"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2

@@ -31,7 +31,7 @@ jobs:
           cd FSD_04_CapstoneProject/Front-End
           npm run build
         env:
-          VITE_API_URL: https://cartify-api.azurewebsites.net
+          VITE_API_URL: https://cartify-api-gbg7ajfuasc3apch.eastus-01.azurewebsites.net
           VITE_RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
 
       - name: Zip artifact for deployment
