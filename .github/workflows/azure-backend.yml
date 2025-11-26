@@ -21,15 +21,20 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Install dependencies
+      - name: Install ALL dependencies
         run: |
           cd FSD_04_CapstoneProject/Back-End
-          npm install --production
+          npm install
 
-      - name: Zip artifact for deployment
+      - name: Prune dev dependencies
         run: |
           cd FSD_04_CapstoneProject/Back-End
-          zip -r ../../backend-release.zip . -x "*.git*" "*.env*" "coverage/*" "__tests__/*"
+          npm prune --production
+
+      - name: Zip artifact for deployment (INCLUDE node_modules)
+        run: |
+          cd FSD_04_CapstoneProject/Back-End
+          zip -r ../../backend-release.zip . -x "*.git*" ".github/*" "*.env*" "coverage/*" "__tests__/*"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
