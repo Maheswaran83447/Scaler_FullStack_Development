@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd FSD_04_CapstoneProject/Back-End
-          npm ci --production
+          npm install --production
 
       - name: Zip artifact for deployment
         run: |
