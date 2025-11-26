@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "Back-End/**"
+      - "FSD_04_CapstoneProject/Back-End/**"
       - ".github/workflows/azure-backend.yml"
   workflow_dispatch:
 
