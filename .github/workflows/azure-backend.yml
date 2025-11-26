@@ -1,0 +1,41 @@
+name: Deploy Backend to Azure App Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "FSD_04_CapstoneProject/Back-End/**"
+      - ".github/workflows/azure-backend.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: FSD_04_CapstoneProject/Back-End/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd FSD_04_CapstoneProject/Back-End
+          npm ci --production
+
+      - name: Zip artifact for deployment
+        run: |
+          cd FSD_04_CapstoneProject/Back-End
+          zip -r ../../backend-release.zip . -x "*.git*" "node_modules/*" "*.env*"
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: "cartify-backend"
+          publish-profile: ${{ secrets.AZURE_BACKEND_PUBLISH_PROFILE }}
+          package: backend-release.zip
