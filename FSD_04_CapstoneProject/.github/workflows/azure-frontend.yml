@@ -1,0 +1,49 @@
+name: Deploy Frontend to Azure App Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Front-End/**"
+      - ".github/workflows/azure-frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: Front-End/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd Front-End
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd Front-End
+          npm run build
+        env:
+          VITE_API_BASE_URL: https://cartify-backend.azurewebsites.net
+          VITE_RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+
+      - name: Zip artifact for deployment
+        run: |
+          cd Front-End/dist
+          zip -r ../../frontend-release.zip .
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: "cartify-frontend"
+          publish-profile: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE }}
+          package: frontend-release.zip

@@ -1,5 +1,65 @@
 # Analyse Changes
 
+## Commits on 26 Nov 2025
+
+### Security Enhancements
+
+- **Protected Routes**: Added authentication middleware to address and wishlist routes
+  - `addressRoutes.js`: All routes now require JWT authentication (GET, POST, DELETE)
+  - `wishlistRoutes.js`: All routes now require JWT authentication (GET, POST, DELETE)
+  - Fixes security vulnerability where unauthenticated users could access user-specific data
+
+### Testing Infrastructure
+
+- **Backend Tests**: Added comprehensive test suites using Jest and Supertest
+
+  - `addressRoutes.test.js`: 7 test cases covering GET, POST, DELETE operations with authentication
+  - `wishlistRoutes.test.js`: 9 test cases including edge cases (empty list, duplicates, not found)
+  - All tests passing with proper mocking of database and authentication
+
+- **Frontend Tests**: Added React component testing with Vitest and React Testing Library
+
+  - `CartContext.test.jsx`: 11 test cases for cart state management (add, update, remove, clear, calculations)
+  - `WishlistContext.test.jsx`: 9 test cases for wishlist functionality (toggle, isInWishlist, clear, guest behavior)
+  - `vitest.config.js`: Test configuration with jsdom environment
+  - `src/test/setup.js`: Global test setup with React Testing Library
+
+- **Dependencies**: Updated package.json files
+  - Backend: Added `supertest@^6.3.3` for API testing
+  - Frontend: Added `@testing-library/react@16.1.0`, `@testing-library/jest-dom@6.6.3`, `vitest@2.1.8`, `jsdom@25.0.1`
+  - Upgraded to React 19 compatible testing library versions
+
+### Azure Deployment Configuration
+
+- **GitHub Actions Workflows**: Added automated deployment pipelines
+
+  - `.github/workflows/azure-backend.yml`: Backend deployment to Azure App Service
+    - Triggers on changes to Back-End folder
+    - Installs dependencies, zips code, deploys via publish profile
+  - `.github/workflows/azure-frontend.yml`: Frontend deployment to Azure App Service
+    - Triggers on changes to Front-End folder
+    - Builds Vite app, zips dist folder, deploys via publish profile
+  - Both workflows support manual triggering via `workflow_dispatch`
+
+- **GitHub Secrets**: Configured repository secrets for deployment
+
+  - `AZURE_BACKEND_PUBLISH_PROFILE`: Backend App Service credentials
+  - `AZURE_FRONTEND_PUBLISH_PROFILE`: Frontend App Service credentials
+  - `RAZORPAY_KEY_ID`: Payment gateway key for build-time injection
+  - `RAZORPAY_KEY_SECRET`: Payment gateway secret
+
+- **Azure App Services Configuration**:
+  - Backend environment variables: MONGO_URI, JWT_SECRET, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, PORT, NODE_ENV
+  - Frontend environment variables: VITE_API_BASE_URL, VITE_RAZORPAY_KEY_ID
+  - Startup commands configured for both services
+  - SCM Basic Auth enabled for publish profile deployment
+
+### Documentation Updates
+
+- **ProjectReport.md**: Updated API reference table from 9 to 29 endpoints with authentication requirements
+- **ProjectReport.md**: Added bibliography section with AI tools (GitHub Copilot, ChatGPT, Claude) and resources (Unsplash, Sora)
+- **AZURE_DEPLOYMENT.md**: Created comprehensive deployment guide with step-by-step instructions
+
 ## Commits on 25 Nov 2025
 
 ### Cart.js (Back-End)
